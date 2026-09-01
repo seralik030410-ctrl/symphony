@@ -1,0 +1,32 @@
+{
+  "source": "C:/Users/alijo/Documents/anush/database/history.db",
+  "captured_at": "2026-08-29",
+  "mode": "read-only aggregate; no user message content copied",
+  "legacy_counts": {
+    "sessions": 2,
+    "messages": 9,
+    "activities": 33,
+    "jobs": 17,
+    "jobs_succeeded": 9,
+    "jobs_failed": 6,
+    "jobs_interrupted": 2
+  },
+  "stage_1_acceptance": [
+    {
+      "id": "A",
+      "prompt": "Почему небо голубое?",
+      "expected": "Direct streamed model response with no document, skill, tool, or sandbox path."
+    },
+    {
+      "id": "F",
+      "setup": "Discuss Japan in one session, then create another session.",
+      "expected": "The second provider request contains no messages or topic from the first session."
+    },
+    {
+      "id": "H-stage-1",
+      "setup": "Refresh while a model response is streaming.",
+      "expected": "Persisted messages and events reconstruct the active turn and streaming resumes in the UI."
+    }
+  ]
+}
+

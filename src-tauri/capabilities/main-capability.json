@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Only the local Symphony frontend may use desktop bridge commands.",
+  "windows": ["main"],
+  "local": false,
+  "remote": {
+    "urls": ["http://127.0.0.1:8765/"]
+  },
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-has-openai-key",
+    "allow-set-openai-key",
+    "allow-delete-openai-key",
+    "allow-consume-dropped-file",
+    "updater:default",
+    "process:allow-restart",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*" }]
+    }
+  ]
+}

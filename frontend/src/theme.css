@@ -1,0 +1,104 @@
+/* Semantic roles shared by chat, settings, source viewer and dialogs. */
+:root {
+  color-scheme: light;
+  --canvas: #f3f5f7;
+  --surface: #fafbfc;
+  --raised: #fdfefe;
+  --subtle: #f7f9fa;
+  --rail: #eef1f3;
+  --hover: #e5e9ec;
+  --selected: #dfe5e9;
+  --text: #182027;
+  --text-secondary: #46525c;
+  --muted: #606d77;
+  --border: #dfe4e8;
+  --control-border: #a7b8c3;
+  --scroll-thumb: #89979f;
+  --accent: #b84c2e;
+  --accent-fill: #bd4d2d;
+  --accent-hover: #a43e22;
+  --on-accent: #fffaf8;
+  --primary-fill: #182027;
+  --primary-hover: #2d3942;
+  --on-primary: #fdfefe;
+  --link: #2f6f91;
+  --link-fill: #2f6f91;
+  --link-surface: #f1f7fa;
+  --success: #21694d;
+  --success-surface: #e9f5ef;
+  --success-border: #badbcd;
+  --danger: #a33139;
+  --danger-fill: #b33d42;
+  --danger-surface: #fcf1f2;
+  --danger-border: #e7c9cb;
+  --warning: #7c550e;
+  --warning-surface: #fffaf0;
+  --warning-border: #d9c8a9;
+  --syntax-keyword: #7543a2;
+  --syntax-string: #276540;
+  --syntax-number: #92501e;
+  --diff-add: #e3f3e9;
+  --diff-remove: #fbe8e7;
+  --code-surface: #182027;
+  --code-text: #e9eef1;
+  --paper: #fff;
+  --shadow: rgb(24 32 39 / 14%);
+  --scrim: rgb(24 32 39 / 38%);
+  --focus-wash: rgb(47 111 145 / 20%);
+  --select-shadow: 0 14px 34px var(--shadow);
+  --trace-ink: var(--muted);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: oklch(0.20 0.01 250);
+  --surface: oklch(0.23 0.01 250);
+  --raised: oklch(0.28 0.01 250);
+  --subtle: oklch(0.25 0.01 250);
+  --rail: oklch(0.21 0.01 250);
+  --hover: oklch(0.32 0.01 250);
+  --selected: oklch(0.35 0.01 250);
+  --text: oklch(0.94 0.005 250);
+  --text-secondary: oklch(0.85 0.01 250);
+  --muted: oklch(0.74 0.01 250);
+  --border: oklch(0.36 0.01 250);
+  --control-border: oklch(0.56 0.015 250);
+  --scroll-thumb: oklch(0.58 0.015 250);
+  --accent: oklch(0.80 0.115 40);
+  --accent-fill: oklch(0.77 0.13 40);
+  --accent-hover: oklch(0.82 0.12 40);
+  --on-accent: oklch(0.19 0.01 250);
+  --primary-fill: oklch(0.90 0.005 250);
+  --primary-hover: oklch(0.84 0.01 250);
+  --on-primary: oklch(0.20 0.01 250);
+  --link: oklch(0.80 0.075 235);
+  --link-fill: oklch(0.45 0.075 235);
+  --link-surface: oklch(0.29 0.03 235);
+  --success: oklch(0.81 0.095 160);
+  --success-surface: oklch(0.29 0.03 160);
+  --success-border: oklch(0.44 0.055 160);
+  --danger: oklch(0.80 0.11 25);
+  --danger-fill: oklch(0.47 0.13 25);
+  --danger-surface: oklch(0.29 0.04 25);
+  --danger-border: oklch(0.46 0.07 25);
+  --warning: oklch(0.83 0.10 80);
+  --warning-surface: oklch(0.29 0.03 80);
+  --warning-border: oklch(0.46 0.045 80);
+  --syntax-keyword: oklch(0.82 0.10 310);
+  --syntax-string: oklch(0.82 0.09 155);
+  --syntax-number: oklch(0.84 0.10 75);
+  --diff-add: oklch(0.29 0.04 160);
+  --diff-remove: oklch(0.29 0.045 25);
+  --shadow: rgb(0 0 0 / 30%);
+  --scrim: rgb(0 0 0 / 60%);
+  --focus-wash: oklch(0.80 0.075 235 / 25%);
+}
+
+/* Inputs inherit text; native controls and scrollbars follow the resolved scheme. */
+html { background: var(--canvas); accent-color: var(--link); }
+input, textarea, select { color: var(--text); }
+::placeholder { color: var(--muted); opacity: 1; }
+::selection { background: var(--focus-wash); }
+* { scrollbar-color: var(--scroll-thumb) transparent; }
+/* Preview is untrusted content with its own visual design, not an app surface. */
+.workspace-tab-content > iframe { color-scheme: light; }

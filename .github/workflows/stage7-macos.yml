@@ -1,0 +1,43 @@
+name: Stage 7 macOS contract
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "desktop/**"
+      - "frontend/**"
+      - "src-tauri/**"
+      - "assets/app-icon.svg"
+      - "scripts/build-macos.sh"
+      - "scripts/build-sidecar.sh"
+      - "scripts/check-stage7-macos.sh"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/stage7-macos.yml"
+
+jobs:
+  contract:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: bash scripts/check-stage7-macos.sh
+      - run: python3 -m pip install -e '.[dev]'
+      - run: npm --prefix frontend ci
+      - run: npm --prefix frontend exec -- tauri icon assets/app-icon.svg --output src-tauri/icons
+      - run: npm --prefix frontend test
+      - run: npm --prefix frontend run build
+      - run: python3 -m pytest -q
+      - name: Freeze and smoke-test the real sidecar
+        run: bash scripts/build-sidecar.sh
+      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - run: cargo test --manifest-path src-tauri/Cargo.toml

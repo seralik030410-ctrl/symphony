@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Symphony 2.0",
+  "version": "0.7.0",
+  "identifier": "com.symphony.local",
+  "build": {
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Symphony 2.0",
+        "url": "desktop-error.html",
+        "visible": true,
+        "width": 1440,
+        "height": 900,
+        "minWidth": 920,
+        "minHeight": 640,
+        "resizable": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' http://127.0.0.1:8765; connect-src 'self' http://127.0.0.1:8765; img-src 'self' data: blob: http://127.0.0.1:8765; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "capabilities": ["main-capability"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": ["app", "dmg"],
+    "externalBin": ["binaries/symphony-backend"],
+    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first AI workspace",
+    "longDescription": "Local-first chat and project runtime with explicit network boundaries.",
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    }
+  }
+}

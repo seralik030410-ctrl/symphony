@@ -1,0 +1,10 @@
+{
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_THE_CONTENTS_OF_THE_TAURI_PUBLIC_KEY",
+      "endpoints": [
+        "https://REPLACE_WITH_RELEASE_HOST/latest.json"
+      ]
+    }
+  }
+}
