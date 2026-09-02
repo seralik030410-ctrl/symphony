@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 from backend.tools.contracts import ToolError
@@ -88,3 +89,17 @@ class WorkspaceManager:
                 if len(entries) >= max_entries:
                     return entries
         return entries
+
+    def purge_session(self, session_id: str) -> None:
+        """Remove the complete on-disk session directory without following links."""
+        if not session_id or any(character not in "0123456789abcdef" for character in session_id.lower()):
+            raise ToolError("invalid_session", "Session id is invalid")
+        session_path = self.root / session_id
+        if not session_path.exists():
+            return
+        if is_link(session_path):
+            raise ToolError("workspace_escape", "Session directory cannot be a link")
+        resolved = session_path.resolve()
+        if resolved.parent != self.root:
+            raise ToolError("workspace_escape", "Session directory escaped the configured root")
+        shutil.rmtree(resolved)

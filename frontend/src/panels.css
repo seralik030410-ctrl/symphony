@@ -49,6 +49,9 @@
   .trash-list { list-style: none; padding: 0; }
   .trash-list li { display: flex; align-items: center; gap: 12px; padding-block: 8px; border-block-end: 1px solid var(--border); }
   .trash-list li > span { flex: 1; min-inline-size: 0; overflow-wrap: anywhere; }
+  .trash-actions { display: flex; justify-content: flex-end; padding-block-start: 16px; }
+  .trash-empty-button { color: var(--danger); }
+  .trash-empty-button:hover { color: var(--danger); background: var(--danger-surface); }
   .skill-trace {
     max-inline-size: 700px; margin-block: 12px 4px; border: 1px solid var(--border);
     border-radius: 8px; background: var(--subtle); color: var(--text-secondary);

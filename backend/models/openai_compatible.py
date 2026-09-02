@@ -167,9 +167,20 @@ class OpenAICompatibleAdapter(ModelAdapter):
                 f"OpenAI-compatible API returned HTTP {exc.response.status_code}: {detail}",
                 code="http_error",
             ) from exc
-        except (httpx.HTTPError, OSError) as exc:
+        except httpx.ReadTimeout as exc:
             raise ProviderError(
-                f"Cannot reach OpenAI-compatible API at {self.base_url}: {exc}",
+                f"OpenAI-compatible API did not send data for {self.request_timeout:g} seconds. Retry the turn or check the provider.",
+                code="timeout",
+            ) from exc
+        except httpx.ConnectError as exc:
+            raise ProviderError(
+                f"Cannot connect to OpenAI-compatible API at {self.base_url}.",
+                code="unavailable",
+            ) from exc
+        except (httpx.HTTPError, OSError) as exc:
+            detail = str(exc).strip() or exc.__class__.__name__
+            raise ProviderError(
+                f"OpenAI-compatible API connection failed at {self.base_url}: {detail}",
                 code="unavailable",
             ) from exc
         finally:

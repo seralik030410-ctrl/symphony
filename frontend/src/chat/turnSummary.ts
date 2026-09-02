@@ -44,6 +44,7 @@ export function summarizeTurn(turn: Turn, events: TurnEvent[]) {
       case "research.received": stage = "Проверяет источник…"; break;
       case "research.sources": stage = "Источники сохранены"; break;
       case "model.started": modelSteps++; stage = "Ожидание модели…"; break;
+      case "model.recovery_started": stage = "Завершает ответ…"; break;
       case "model.reasoning_delta":
         reasoning += String(event.payload.delta ?? "");
         stage = "Думает…";

@@ -195,8 +195,19 @@ class OllamaAdapter(ModelAdapter):
                 f"Ollama returned HTTP {exc.response.status_code}: {detail}",
                 code="http_error",
             ) from exc
+        except httpx.ReadTimeout as exc:
+            raise ProviderError(
+                f"Ollama did not send data for {self.request_timeout:g} seconds. The model may be overloaded; retry the turn.",
+                code="timeout",
+            ) from exc
+        except httpx.ConnectError as exc:
+            raise ProviderError(
+                f"Cannot connect to Ollama at {self.base_url}. Check that Ollama is running.",
+                code="unavailable",
+            ) from exc
         except (httpx.HTTPError, OSError) as exc:
-            raise ProviderError(f"Cannot reach Ollama at {self.base_url}: {exc}", code="unavailable") from exc
+            detail = str(exc).strip() or exc.__class__.__name__
+            raise ProviderError(f"Ollama connection failed at {self.base_url}: {detail}", code="unavailable") from exc
         finally:
             self._cancelled.discard(request.request_id)
 

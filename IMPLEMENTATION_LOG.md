@@ -281,3 +281,10 @@ Remaining Stage 7 work: native macOS compilation/package fixes, real signing/not
 - The existing Gateway path supplies streaming text, compatible reasoning fields, usage and native tool calls. Provider/model selection and context stay scoped per chat. Multiple simultaneous remote endpoint profiles are intentionally not claimed; changing the one remote profile requires reconfiguration and restart.
 
 Verification: all PowerShell scripts parse; 18 focused Gateway/chat/context tests pass. The final full backend run with `SYMPHONY_RUN_DOCKER_TESTS=1` reached **195 passed / 100%** on the real Docker runtime. Frontend **42/42 tests pass**; Windows hit an open-file limit with parallel icon transforms, so Vitest now uses one VM worker and completes reliably. TypeScript and Vite production build pass; the existing non-failing >500 KB main-chunk warning remains. Release-package inspection follows after the clean Git commit.
+
+## 2026-09-02 — Turn completion recovery and permanent trash cleanup
+
+- Fixed a real Ollama/Qwen failure observed in production history: a thinking-capable model could consume the entire 2,048-token generation budget with reasoning and return no visible answer or tool call. Symphony now records the condition and retries once with thinking disabled so the planned answer can be delivered instead of ending as `empty_response`.
+- Provider timeouts and connection failures now produce actionable Ollama/OpenAI-compatible messages instead of blank transport errors.
+- Added permanent chat deletion and bulk trash cleanup. Clearing trash removes the session, messages, turns, events, tool/approval records, attachments, artifacts, memory, research sources, FTS rows and the isolated on-disk session directory. The UI uses a separate irreversible-action confirmation and retains Restore for recoverable items.
+- Focused backend regression suite: **10 passed**. Frontend: **42 passed**; TypeScript and production build successful. The existing non-failing bundle-size warning remains.

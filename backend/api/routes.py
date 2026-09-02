@@ -92,6 +92,38 @@ async def list_trashed_sessions(request: Request) -> list[dict[str, Any]]:
     return _state(request).repository.list_trashed_sessions()
 
 
+@router.delete("/trash")
+async def empty_session_trash(request: Request) -> dict[str, Any]:
+    runtime = _state(request)
+    session_ids = runtime.repository.purge_trashed_sessions()
+    storage_warnings: list[dict[str, str]] = []
+    for session_id in session_ids:
+        try:
+            runtime.workspaces.purge_session(session_id)
+        except (OSError, ToolError) as exc:
+            storage_warnings.append({"id": session_id, "message": str(exc)})
+    return {
+        "deleted": len(session_ids),
+        "ids": session_ids,
+        "storage_warnings": storage_warnings,
+    }
+
+
+@router.delete("/trash/{session_id}")
+async def permanently_delete_session(session_id: str, request: Request) -> dict[str, Any]:
+    runtime = _state(request)
+    try:
+        result = runtime.repository.purge_session(session_id)
+        runtime.workspaces.purge_session(session_id)
+        return result
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ToolError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.delete("/sessions/{session_id}")
 async def trash_session(session_id: str, request: Request) -> dict[str, Any]:
     runtime = _state(request)

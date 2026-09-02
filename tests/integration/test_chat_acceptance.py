@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from conftest import FakeAdapter, wait_for_final
-from backend.models.base import TokenUsage
+from backend.models.base import ModelStreamEvent, TokenUsage
 
 
 async def create_session(client, provider: str = "ollama") -> dict:
@@ -164,3 +164,31 @@ async def test_reasoning_usage_and_context_window_are_durable(client, adapters):
     assert usage["payload"]["context_window"] == 16_384
     assert completed["payload"]["output_tokens"] == 45
     assert completed["payload"]["reasoning_tokens"] == 17
+
+
+async def test_reasoning_only_budget_exhaustion_recovers_with_visible_answer(client, adapters, monkeypatch):
+    adapter: FakeAdapter = adapters["ollama"]
+
+    async def stream(request):
+        adapter.requests.append(request)
+        if len(adapter.requests) == 1:
+            yield ModelStreamEvent(type="reasoning_delta", delta="Длинный внутренний план")
+            yield ModelStreamEvent(type="usage", usage=TokenUsage(input_tokens=300, output_tokens=request.max_output))
+        else:
+            yield ModelStreamEvent(type="text_delta", delta="Готовый ответ после восстановления.")
+
+    monkeypatch.setattr(adapter, "stream_chat", stream)
+    session = await create_session(client)
+    created = (await client.post(
+        f"/api/sessions/{session['id']}/turns", json={"content": "Заверши задачу"}
+    )).json()
+    final = await wait_for_final(client, created["turn"]["id"])
+    restored = (await client.get(f"/api/sessions/{session['id']}")).json()
+    events = (await client.get(f"/api/turns/{final['id']}/events")).json()
+
+    assert final["status"] == "completed"
+    assert restored["messages"][-1]["content"] == "Готовый ответ после восстановления."
+    assert len(adapter.requests) == 2
+    assert adapter.requests[0].thinking is None
+    assert adapter.requests[1].thinking is False
+    assert any(event["type"] == "model.recovery_started" for event in events)

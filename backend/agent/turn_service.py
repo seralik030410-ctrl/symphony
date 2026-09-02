@@ -319,6 +319,11 @@ class TurnService:
             seen_calls: set[str] = set()
             failed_attempts: dict[str, int] = {}
             model_step = 0
+            # Some thinking-capable models can consume the complete generation
+            # budget with reasoning and return neither user-visible text nor a
+            # tool call. Retry that boundary case once with thinking disabled so
+            # the model can actually deliver the action or answer it planned.
+            thinking_recovery = False
 
             while True:
                 model_step += 1
@@ -345,6 +350,7 @@ class TurnService:
                     max_output=session["max_output"],
                     tools=model_tools,
                     context_window=session["context_window"],
+                    thinking=False if thinking_recovery else None,
                 )
                 step_text = ""
                 step_reasoning = ""
@@ -404,6 +410,18 @@ class TurnService:
                 )
                 if not calls:
                     if not step_text.strip():
+                        if step_reasoning.strip() and not thinking_recovery:
+                            thinking_recovery = True
+                            await self.emit(
+                                turn_id,
+                                "model.recovery_started",
+                                {
+                                    "code": "reasoning_budget_exhausted",
+                                    "message": "The model used the generation budget for reasoning; retrying once to produce the answer",
+                                    "step": model_step,
+                                },
+                            )
+                            continue
                         raise ProviderError("Model returned no answer or tool call; increase output budget or retry", code="empty_response")
                     break
                 if tool_call_count + len(calls) > self.max_tool_calls:

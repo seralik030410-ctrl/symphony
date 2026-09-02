@@ -166,6 +166,54 @@ class Repository:
         with self.database.read() as connection:
             return [dict(row) for row in connection.execute("SELECT id,title,deleted_at FROM sessions WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC")]
 
+    @staticmethod
+    def _purge_session_rows(connection: Any, session_id: str) -> None:
+        """Delete one already-trashed session and every durable dependent row."""
+        row = connection.execute(
+            "SELECT deleted_at FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        if row is None:
+            raise NotFoundError("Session not found")
+        if row["deleted_at"] is None:
+            raise ConflictError("Move the chat to trash before deleting it permanently")
+
+        # FTS5 is not connected by a foreign key, and several later-stage
+        # tables intentionally predate cascade rules. Keep the deletion order
+        # explicit so a permanent delete cannot leave searchable chat data.
+        connection.execute("DELETE FROM file_chunks_fts WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM attachment_uses WHERE turn_id IN (SELECT id FROM turns WHERE session_id = ?)", (session_id,))
+        connection.execute("DELETE FROM approvals WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM tool_calls WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM events WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM research_sources WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM artifact_versions WHERE artifact_id IN (SELECT id FROM artifacts WHERE session_id = ?)", (session_id,))
+        connection.execute("DELETE FROM artifacts WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM file_chunks WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM indexed_files WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM attachments WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM memory_snapshots WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM research_settings WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM turns WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        connection.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+
+    def purge_session(self, session_id: str) -> dict[str, Any]:
+        with self.database.transaction() as connection:
+            self._purge_session_rows(connection, session_id)
+        return {"id": session_id, "deleted": True, "recoverable": False}
+
+    def purge_trashed_sessions(self) -> list[str]:
+        with self.database.transaction() as connection:
+            session_ids = [
+                row["id"]
+                for row in connection.execute(
+                    "SELECT id FROM sessions WHERE deleted_at IS NOT NULL ORDER BY deleted_at, id"
+                )
+            ]
+            for session_id in session_ids:
+                self._purge_session_rows(connection, session_id)
+        return session_ids
+
     def create_turn(self, session_id: str, content: str, attachment_ids: list[str] | None = None, *, image_mode: str = "vision", retry_from_turn: str | None = None) -> dict[str, Any]:
         session = self.get_session(session_id, include_history=False)
         attachment_ids = attachment_ids or []

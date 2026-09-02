@@ -82,6 +82,8 @@ export default function App() {
   const [deleting, setDeleting] = useState(false);
   const [deletedChat, setDeletedChat] = useState<SessionSummary | null>(null);
   const [trash, setTrash] = useState<Array<{ id: string; title: string; deleted_at: string }> | null>(null);
+  const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
+  const [emptyingTrash, setEmptyingTrash] = useState(false);
   useEffect(() => { localStorage.setItem("symphony.chatsOpen", String(chatsOpen)); }, [chatsOpen]);
   useEffect(() => { localStorage.setItem("symphony.eventsOpen", String(eventsOpen)); }, [eventsOpen]);
   useEffect(() => { localStorage.setItem("symphony.workspaceOpen", String(workspaceOpen)); }, [workspaceOpen]);
@@ -348,8 +350,26 @@ export default function App() {
   }
 
   async function showTrash() {
-    try { setTrash(await api.listTrash()); }
+    try { setEmptyTrashConfirm(false); setTrash(await api.listTrash()); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось открыть корзину"); }
+  }
+
+  async function emptyTrash() {
+    if (!trash?.length || emptyingTrash) return;
+    setEmptyingTrash(true);
+    try {
+      const result = await api.emptyTrash();
+      setTrash([]);
+      setDeletedChat(null);
+      setEmptyTrashConfirm(false);
+      if (result.storage_warnings.length) {
+        setError(`Чаты удалены, но не удалось очистить ${result.storage_warnings.length} папок на диске`);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось очистить корзину");
+    } finally {
+      setEmptyingTrash(false);
+    }
   }
 
   async function sendMessage() {
@@ -716,10 +736,16 @@ export default function App() {
           <button className="danger-button" disabled={deleting} onClick={() => void deleteChat()}>{deleting ? "Удаляем…" : "Удалить чат"}</button>
         </div>
       </Dialog> : null}
-      {trash ? <Dialog title="Корзина чатов" onClose={() => setTrash(null)}>
-        <header className="dialog-toolbar"><h2>Корзина чатов</h2><button className="icon-button" aria-label="Закрыть корзину" onClick={() => setTrash(null)}><X size={18} /></button></header>
-        {trash.length ? <ul className="trash-list">{trash.map(item => <li key={item.id}><span>{item.title}</span>
-          <button className="text-button" onClick={() => void restoreChat(item.id)}><ArrowCounterClockwise size={16} /> Восстановить</button></li>)}</ul> : <p>Удалённых чатов нет.</p>}
+      {trash ? <Dialog title="Корзина чатов" onClose={() => { if (!emptyingTrash) { setTrash(null); setEmptyTrashConfirm(false); } }}>
+        <header className="dialog-toolbar"><h2>{emptyTrashConfirm ? "Очистить корзину?" : "Корзина чатов"}</h2><button className="icon-button" disabled={emptyingTrash} aria-label="Закрыть корзину" onClick={() => { setTrash(null); setEmptyTrashConfirm(false); }}><X size={18} /></button></header>
+        {emptyTrashConfirm ? <>
+          <p>Все {trash.length} {trash.length === 1 ? "удалённый чат" : "удалённых чата"} и связанные файлы будут удалены навсегда. Это действие нельзя отменить.</p>
+          <div className="dialog-actions"><button className="text-button" disabled={emptyingTrash} onClick={() => setEmptyTrashConfirm(false)}>Назад</button><button className="danger-button" disabled={emptyingTrash} onClick={() => void emptyTrash()}>{emptyingTrash ? "Очищаем…" : "Удалить навсегда"}</button></div>
+        </> : <>
+          {trash.length ? <ul className="trash-list">{trash.map(item => <li key={item.id}><span>{item.title}</span>
+            <button className="text-button" onClick={() => void restoreChat(item.id)}><ArrowCounterClockwise size={16} /> Восстановить</button></li>)}</ul> : <p>Корзина пуста.</p>}
+          {trash.length ? <footer className="trash-actions"><button className="text-button trash-empty-button" onClick={() => setEmptyTrashConfirm(true)}><Trash size={17} /> Очистить корзину</button></footer> : null}
+        </>}
       </Dialog> : null}
     </main>
   );

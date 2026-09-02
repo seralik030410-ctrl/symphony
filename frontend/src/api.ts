@@ -76,6 +76,7 @@ export const api = {
   deleteSession: (id: string) => request<{ id: string; recoverable: boolean }>(`/sessions/${id}`, { method: "DELETE" }),
   restoreSession: (id: string) => request<Session>(`/sessions/${id}/restore`, { method: "POST" }),
   listTrash: () => request<Array<{ id: string; title: string; deleted_at: string }>>("/trash"),
+  emptyTrash: () => request<{ deleted: number; ids: string[]; storage_warnings: Array<{ id: string; message: string }> }>("/trash", { method: "DELETE" }),
   projectTree: (id: string) => request<{ entries: Array<{ path: string; type: "directory" | "file"; size: number | null }> }>(`/sessions/${id}/tree`),
   projectFile: (id: string, path: string) => request<ProjectFile>(`/sessions/${id}/files?path=${encodeURIComponent(path)}`),
   projectChanges: (id: string, snapshot?: string) => request<ProjectChanges>(`/sessions/${id}/changes${snapshot ? `?snapshot_id=${encodeURIComponent(snapshot)}` : ""}`),
