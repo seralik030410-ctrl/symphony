@@ -139,5 +139,5 @@ async def test_model_capability_override_is_explicit_and_persistent(app, client)
     assert (await client.put(path, json={"vision": True, "max_context": 32768})).status_code == 200
     caps = await app.state.runtime.gateway.resolve_capabilities("openai", session["model"])
     assert caps.vision and caps.max_context == 32768
-    assert (await client.put(path, json={"vision": True, "max_context": 999999})).status_code == 422
+    assert (await client.put(path, json={"vision": True, "max_context": 2000000})).status_code == 422
     assert (await client.put(path, json={})).json()["vision"] is False

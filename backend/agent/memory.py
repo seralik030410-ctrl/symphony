@@ -61,8 +61,11 @@ class MemoryStore:
             session = repository.get_session(session_id, include_history=False)
             memory = self.get(session_id)
             records = repository.list_context_records(session_id)
-            # Keep the latest ten verbatim; never split a user/answer pair.
-            older = records[:-10]
+            # Adaptive tail: keep at least 4, at most 10 recent messages verbatim.
+            # This allows compression even with just 5-6 long messages instead of
+            # requiring 11+ messages before any compression can happen.
+            tail_size = min(10, max(4, len(records) // 2))
+            older = records[:-tail_size] if len(records) > tail_size else []
             if older and older[-1]["role"] == "user":
                 older = older[:-1]
             covered = set(memory["source_message_ids"])

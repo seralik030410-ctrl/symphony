@@ -14,10 +14,12 @@ export function summarizeTurn(turn: Turn, events: TurnEvent[]) {
   let outputTokens = 0;
   let reasoningTokens: number | null = null;
   let contextUsed: number | null = null;
+  let contextFill: number | null = null;
   let contextWindow = 0;
   let estimated = true;
   let hasUsage = false;
   let modelSteps = 0;
+  let droppedMessages = 0;
   let stage = "Подготовка…";
   for (const event of events) {
     switch (event.type) {
@@ -27,8 +29,10 @@ export function summarizeTurn(turn: Turn, events: TurnEvent[]) {
       case "skill.resource_read": stage = "Изучает ресурс навыка…"; break;
       case "skill.script_executed": stage = "Проверяет результат script…"; break;
       case "context.built":
-        contextUsed = count(event.payload.estimated_tokens);
+        contextFill = count(event.payload.estimated_tokens);
+        contextUsed = contextFill;
         contextWindow = count(event.payload.context_window) ?? contextWindow;
+        droppedMessages = count(event.payload.dropped_messages) ?? 0;
         break;
       case "context.retrieved": stage = "Ищет в источниках…"; break;
       case "memory.started": stage = "Сжимает старую историю…"; break;
@@ -72,5 +76,6 @@ export function summarizeTurn(turn: Turn, events: TurnEvent[]) {
   }
   const active = ["queued", "preparing", "model_running"].includes(turn.status);
   return { active, stage, reasoning, inputTokens, outputTokens, reasoningTokens,
-    contextUsed, contextWindow, estimated, hasUsage, modelSteps };
+    contextUsed, contextFill, contextWindow, estimated, hasUsage, modelSteps,
+    droppedMessages };
 }

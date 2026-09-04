@@ -327,6 +327,9 @@ class TurnService:
 
             while True:
                 model_step += 1
+                # Before each model call, compact prior tool observations to save tokens.
+                if model_step > 1:
+                    self._compact_prior_tool_results(messages)
                 estimated_input = estimate_tokens(messages) + schema_tokens
                 if estimated_input + session["max_output"] > session["context_window"]:
                     raise ProviderError("Context budget reached; continue in a new turn or increase this chat's context window", code="context_limit")
@@ -448,8 +451,10 @@ class TurnService:
                     "content": step_text,
                     "tool_calls": assistant_tool_calls,
                 }
-                if step_reasoning and turn["provider"] == "ollama":
-                    assistant_message["thinking"] = step_reasoning
+                # Intentionally do NOT attach step_reasoning (thinking) to messages
+                # sent back in the tool loop. The model's reasoning is displayed to
+                # the user via events but re-sending it wastes thousands of tokens
+                # on every subsequent model step.
                 messages.append(assistant_message)
 
                 for call, provider_payload in zip(calls, assistant_tool_calls, strict=True):
@@ -813,3 +818,72 @@ class TurnService:
             return json.dumps({"ok": observation["ok"], "truncated": True, "excerpt": serialized[:12_000],
                                "note": "Full result is saved in tool events. Narrow the next read/search if needed."}, ensure_ascii=False)
         return serialized
+
+    @staticmethod
+    def _compact_observation(content: str) -> str:
+        """Shrink a prior tool observation to a brief status summary.
+
+        The full result was already seen by the model in the step where it was
+        generated and is preserved in event storage.  Re-sending it on later
+        steps wastes the context window.
+        """
+        try:
+            parsed = json.loads(content)
+            ok = parsed.get("ok", True)
+            name = parsed.get("name", "")
+            # Build a short status from known result fields.
+            parts: list[str] = []
+            if "path" in parsed:
+                parts.append(f"path={parsed['path']}")
+            if "exit_code" in parsed:
+                parts.append(f"exit_code={parsed['exit_code']}")
+            if "characters" in parsed:
+                parts.append(f"chars={parsed['characters']}")
+            if "changed_files" in parsed and isinstance(parsed["changed_files"], list):
+                parts.append(f"changed={len(parsed['changed_files'])} files")
+            if "output" in parsed and isinstance(parsed["output"], dict):
+                output = parsed["output"]
+                if "path" in output:
+                    parts.append(f"path={output['path']}")
+                if "exit_code" in output:
+                    parts.append(f"exit_code={output['exit_code']}")
+                if "characters" in output:
+                    parts.append(f"chars={output['characters']}")
+            summary = ", ".join(parts[:6]) if parts else ("succeeded" if ok else "failed")
+            return json.dumps({"ok": ok, "summary": summary, "note": "Full result was shown earlier and is in tool events."}, ensure_ascii=False)
+        except (json.JSONDecodeError, TypeError):
+            # If the content is not JSON (rare edge case), just truncate.
+            if len(content) > 200:
+                return content[:200] + "… [compacted]"
+            return content
+
+    @staticmethod
+    def _compact_prior_tool_results(messages: list[dict[str, Any]]) -> None:
+        """In-place compact all tool-result messages except the most recent batch.
+
+        The most recent tool results (from the step that just finished) are kept
+        verbatim because the model needs them for its next decision.  All older
+        tool results are replaced with compact summaries.
+        """
+        # Find the index of the last assistant message with tool_calls — everything
+        # before that is "prior" and eligible for compaction.
+        last_assistant_index = -1
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i].get("role") == "assistant" and messages[i].get("tool_calls"):
+                last_assistant_index = i
+                break
+        if last_assistant_index < 0:
+            return
+        # Find the second-to-last assistant message with tool_calls.
+        prev_assistant_index = -1
+        for i in range(last_assistant_index - 1, -1, -1):
+            if messages[i].get("role") == "assistant" and messages[i].get("tool_calls"):
+                prev_assistant_index = i
+                break
+        if prev_assistant_index < 0:
+            return
+        # Compact tool results between the start and the most recent tool-calling assistant.
+        for i in range(prev_assistant_index + 1, last_assistant_index):
+            message = messages[i]
+            if message.get("role") == "tool" and len(message.get("content", "")) > 300:
+                message["content"] = TurnService._compact_observation(message["content"])

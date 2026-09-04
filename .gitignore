@@ -19,5 +19,7 @@ dist/
 !frontend/dist/
 !frontend/dist/**
 work/
+output/
 outputs/
 release/
+tmp/

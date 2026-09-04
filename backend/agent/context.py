@@ -30,12 +30,24 @@ class ContextBuilder:
         system = {"role": "system", "content": session["system_prompt"] + ("\n\n" + system_suffix if system_suffix else "")}
         evidence_messages = [{"role": "user", "content": evidence}] if evidence else []
         budget = max(1, session["context_window"] - session["max_output"] - reserved_tokens)
+        # Sliding window: keep as many recent messages as fit, drop oldest first.
+        # Only raise if the very last user message alone exceeds the budget.
         selected: list[dict[str, str]] = []
         used = self.estimate_tokens([system, *evidence_messages])
         for message in reversed(history):
             cost = self.estimate_tokens([message])
             if used + cost > budget:
-                raise ProviderError("Контекст не помещается без потери сообщений. Увеличьте окно, сократите вложения или сожмите память в настройках. История сохранена.", code="context_limit")
+                # If we haven't selected ANY message yet, the single newest message
+                # doesn't fit — that's a hard error the user must resolve.
+                if not selected:
+                    raise ProviderError(
+                        "Последнее сообщение слишком велико для текущего окна контекста. "
+                        "Увеличьте окно, сократите вложения или сожмите память в настройках. "
+                        "История сохранена.",
+                        code="context_limit",
+                    )
+                # Otherwise, just stop — older messages are dropped gracefully.
+                break
             selected.append(message)
             used += cost
         selected.reverse()

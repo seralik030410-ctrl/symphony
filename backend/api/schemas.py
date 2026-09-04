@@ -22,8 +22,8 @@ class SessionUpdate(BaseModel):
     provider: ProviderName | None = None
     model: str | None = Field(default=None, min_length=1, max_length=200)
     system_prompt: str | None = Field(default=None, max_length=4_000)
-    context_window: int | None = Field(default=None, ge=1_024, le=262_144)
-    max_output: int | None = Field(default=None, ge=64, le=65_536)
+    context_window: int | None = Field(default=None, ge=1_024, le=1_048_576)
+    max_output: int | None = Field(default=None, ge=64, le=1_048_576)
     policy_profile: PolicyProfile | None = None
 
 

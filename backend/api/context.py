@@ -49,7 +49,7 @@ class MemoryUpdate(BaseModel):
 class CapabilityUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     vision: bool | None = None
-    max_context: int | None = Field(default=None, ge=1024, le=262144)
+    max_context: int | None = Field(default=None, ge=1024, le=1048576)
 
 
 @router.get("/model-capabilities")

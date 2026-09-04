@@ -83,7 +83,13 @@ function EventIcon({ type }: { type: string }) {
 
 function eventDetail(event: TurnEvent): string {
   if (event.type === "context.built") {
-    return `${String(event.payload.message_count)} сообщений, около ${String(event.payload.estimated_tokens)} токенов`;
+    const est = Number(event.payload.estimated_tokens ?? 0);
+    const win = Number(event.payload.context_window ?? 0);
+    const dropped = Number(event.payload.dropped_messages ?? 0);
+    const pct = win > 0 ? Math.round((est / win) * 100) : 0;
+    let detail = `${est.toLocaleString("ru-RU")} / ${win.toLocaleString("ru-RU")} токенов (${pct}%) · ${String(event.payload.message_count)} сообщений`;
+    if (dropped > 0) detail += ` · ${dropped} отброшено`;
+    return detail;
   }
   if (event.type === "context.retrieved") return `${Number(event.payload.chunks instanceof Array ? event.payload.chunks.length : 0)} фрагментов · ${Number(event.payload.characters ?? 0).toLocaleString("ru-RU")} знаков`;
   if (event.type === "context.indexed") return `${String(event.payload.path ?? "Файл")} · ${Number(event.payload.chunks ?? 0)} фрагментов`;

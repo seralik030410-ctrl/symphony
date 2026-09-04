@@ -89,7 +89,7 @@ class OllamaAdapter(ModelAdapter):
             context_window = max(candidates) if candidates else self.get_capabilities(model).max_context
         except (httpx.HTTPError, OSError, ValueError, TypeError):
             return self.get_capabilities(model).max_context
-        context_window = min(262_144, max(1_024, context_window))
+        context_window = min(1_048_576, max(1_024, context_window))
         self._context_windows[model] = context_window
         self._discovered_at[model] = time.monotonic()
         return context_window

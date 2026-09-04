@@ -63,8 +63,8 @@ class OpenAICompatibleAdapter(ModelAdapter):
             vision=False,
             native_tools=True,
             json_schema=False,
-            max_context=16_384,
-            max_output=2_048,
+            max_context=131_072,
+            max_output=4_096,
         )
 
     async def stream_chat(self, request: ChatRequest) -> AsyncIterator[ModelStreamEvent]:
