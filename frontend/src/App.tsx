@@ -182,11 +182,15 @@ export default function App() {
       () => {
         if (source.readyState === EventSource.CLOSED) {
           subscriptions.current.delete(turnId);
+          const currentId = currentSessionId.current;
+          if (currentId) {
+            window.setTimeout(() => void refreshSessionSnapshot(currentId), 250);
+          }
         }
       },
     );
     subscriptions.current.set(turnId, source);
-  }, []);
+  }, [refreshSessionSnapshot]);
 
   onIncomingEvent.current = (event: TurnEvent) => {
     if (event.session_id !== currentSessionId.current || knownEventIds.current.has(event.id)) return;
@@ -420,6 +424,8 @@ export default function App() {
       await api.cancelTurn(activeTurn.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Не удалось остановить ответ");
+    } finally {
+      if (session) void refreshSessionSnapshot(session.id);
     }
   }
 
