@@ -288,3 +288,16 @@ Verification: all PowerShell scripts parse; 18 focused Gateway/chat/context test
 - Provider timeouts and connection failures now produce actionable Ollama/OpenAI-compatible messages instead of blank transport errors.
 - Added permanent chat deletion and bulk trash cleanup. Clearing trash removes the session, messages, turns, events, tool/approval records, attachments, artifacts, memory, research sources, FTS rows and the isolated on-disk session directory. The UI uses a separate irreversible-action confirmation and retains Restore for recoverable items.
 - Focused backend regression suite: **10 passed**. Frontend: **42 passed**; TypeScript and production build successful. The existing non-failing bundle-size warning remains.
+
+## 2026-09-05 — One-click macOS web launcher
+
+- Added executable `START.command` for Finder and `scripts/start-macos.sh` for Terminal. The launcher safely reads only `SYMPHONY_*` values from local `.env`, creates a Python 3.12+ virtual environment, installs missing backend dependencies, and uses the checked-in frontend build without requiring Node.js.
+- Docker Desktop is started when installed and remains optional for ordinary chat. The matching runtime 6.0 image is built only when missing or stale. Ollama is started from the app bundle or CLI, the selected model is checked, and any multi-gigabyte model download requires an interactive confirmation unless `SYMPHONY_PULL_MISSING_MODEL=1` is explicit.
+- FinCtrl starts through `nohup` on loopback only, writes logs under `data/logs`, waits for health, and opens the local browser. No chats, models, Docker data or caches are deleted.
+- Added a real launcher behavior test with controlled external-command boundaries plus Bash syntax validation. Native macOS execution and Gatekeeper acceptance still require a MacBook; this launcher is not claimed as a signed `.app`/DMG.
+
+## 2026-09-07 — Public product rename to FinCtrl
+
+- Renamed the public product surfaces from Symphony 2.0 to FinCtrl: web UI, assistant labels, browser/API metadata, diagnostics, launch/setup messages, documentation, runtime kit text, release archive name and Tauri desktop title.
+- Kept compatibility identifiers unchanged: `SYMPHONY_*` environment variables, Python/npm package names, SQLite paths, Docker image names, sidecar binary paths and the original rebuild specification remain valid.
+- Added focused frontend, API and macOS-launcher branding checks and observed them fail before implementation. At the user's explicit request, the post-change automated test/build run was skipped before publication.

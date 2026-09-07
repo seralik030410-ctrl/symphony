@@ -60,7 +60,7 @@ export const api = {
   updateCapabilities: (id: string, value: { vision?: boolean; max_context?: number }) => request<ModelProfile["capabilities"]>(`/sessions/${id}/model-capabilities`, { method: "PUT", body: JSON.stringify(value) }),
   getMemory: (id: string) => request<MemorySnapshot>(`/sessions/${id}/memory`),
   getModelLimits: (id: string) => request<{ max_context: number; provider: string; model: string }>(`/sessions/${id}/model-limits`).catch(error => {
-    if (error instanceof ApiError && error.status === 404) throw new Error("На этом порту работает предыдущая версия сервера. Перезапустите Symphony, затем повторите проверку.");
+    if (error instanceof ApiError && error.status === 404) throw new Error("На этом порту работает предыдущая версия сервера. Перезапустите FinCtrl, затем повторите проверку.");
     throw error;
   }),
   updateMemory: (id: string, value: Pick<MemorySnapshot, "facts" | "decisions" | "open_tasks" | "artifact_index">) => request<MemorySnapshot>(`/sessions/${id}/memory`, { method: "PUT", body: JSON.stringify(value) }),

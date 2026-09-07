@@ -7,8 +7,8 @@ Audited on 2026-08-30 from `skill_for_s`. Installation itself did not execute an
 - 37 `SKILL.md` files, 884 total files, 32.38 MB.
 - 31 unique skills by SHA-256; six exact duplicate pairs were collapsed instead of installing duplicate slugs.
 - All 31 unique skills installed successfully in **Explicit** mode. They activate only through `$slug` (or a deliberate mode change in Settings).
-- 21 instruction documents exceeded the 8 KB prompt limit. Symphony kept each original verbatim in `references/symphony-full-skill.md` and installed a compact `SKILL.md` that requires `skill.read_resource` before use.
-- 10 unique source skills include `.py`, `.js`, or `.sh` helpers. They are data at installation time. Symphony can execute only registered files below `scripts/`, only after approval, offline in Docker, with the installed skill read-only.
+- 21 instruction documents exceeded the 8 KB prompt limit. FinCtrl kept each original verbatim in `references/symphony-full-skill.md` and installed a compact `SKILL.md` that requires `skill.read_resource` before use.
+- 10 unique source skills include `.py`, `.js`, or `.sh` helpers. They are data at installation time. FinCtrl can execute only registered files below `scripts/`, only after approval, offline in Docker, with the installed skill read-only.
 - No symlink or junction was accepted. Every installed tree stayed within the 1,000-file / 25 MB per-skill limits.
 
 This is a structural and execution-surface audit, not a claim that every upstream workflow is appropriate for every task. In particular, `shannon` describes offensive security testing and should only be activated for an authorized target.

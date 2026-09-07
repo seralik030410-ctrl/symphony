@@ -1,2 +1,1 @@
-"""HTTP API for Symphony 2.0."""
-
+"""HTTP API for FinCtrl."""

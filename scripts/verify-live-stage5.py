@@ -28,7 +28,7 @@ def main():
                     if event["type"] in {"tool.started", "tool.failed", "artifact.created", "turn.failed", "turn.completed"}:
                         print(json.dumps({"type": event["type"], "payload": event["payload"]}, ensure_ascii=True), flush=True)
                 if any(event["type"] == "approval.requested" for event in chunk):
-                    print("Approval is required; review in the Symphony UI. This helper does not approve.", flush=True)
+                    print("Approval is required; review in the FinCtrl UI. This helper does not approve.", flush=True)
                 turn = client.get(f"/api/turns/{turn['id']}").json()
                 if turn["status"] in {"completed", "failed", "cancelled", "interrupted"}: break
                 time.sleep(2)

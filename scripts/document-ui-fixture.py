@@ -50,7 +50,7 @@ async def seed(app, docker):
             spec = {"title": "Проект в цифрах", "subtitle": "Демонстрационные данные · Август 2026", "preset": "clean_report", "sections": [
                 {"heading": "Коротко о результатах", "paragraphs": ["Команда завершила план работ. Этот отчёт создан доверенным рендерером из структурированного JSON; код для создания документа модель не писала."], "callout": "Выручка: 120 000. План: 100 000. Выполнение плана: 120%.", "chart": {"title": "План и факт", "labels": ["План", "Факт"], "values": [100000, 120000]}},
                 {"heading": "Подробные данные", "table": {"columns": ["Период", "План", "Факт"], "rows": [[f"Неделя {i}", 10000, 12000] for i in range(1, 25)]}},
-            ], "citations": ["Тестовый набор данных Symphony. Не финансовая отчётность."]}
+            ], "citations": ["Тестовый набор данных FinCtrl. Не финансовая отчётность."]}
         path = runtime.workspaces.resolve(session["id"], f"{format}.json")
         path.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
         result = await runtime.artifacts.render(context, format, f"{format}.json", None)

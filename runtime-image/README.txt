@@ -1,6 +1,6 @@
-Symphony runtime 6.0 - standalone dependency kit
+FinCtrl runtime 6.0 - standalone dependency kit
 
-This kit is exported from Symphony. It contains the same Docker recipe used by
+This kit is exported from FinCtrl. It contains the same Docker recipe used by
 the application. No checkout, host Python, host Node.js or Git is required.
 
 1. Install Docker Desktop from https://www.docker.com/products/docker-desktop/
@@ -13,11 +13,11 @@ the application. No checkout, host Python, host Node.js or Git is required.
 4. Review the prompt and confirm with y. The first build needs Internet and
    several GB of downloads (Docker Hub, Debian and PyPI). Budget at least 12 GB
    of free disk space; actual use varies by architecture and existing cache.
-5. Return to Symphony > Settings > General to refresh dependency diagnostics.
+5. Return to FinCtrl > Settings > General to refresh dependency diagnostics.
 
 The scripts verify SHA256SUMS before building symphony-sandbox:stage3. Hashes
 detect corrupt/incomplete extraction, NOT an untrusted publisher. Only run a kit
-downloaded from your own trusted Symphony installation. Read the scripts first.
+downloaded from your own trusted FinCtrl installation. Read the scripts first.
 The build can be retried. It updates only the runtime image tag; it does not
 delete chats, user files, models, volumes or caches, and does not change Docker
 resource/security settings. Custom SYMPHONY_SANDBOX_IMAGE is not reconfigured.

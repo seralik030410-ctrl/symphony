@@ -1,12 +1,12 @@
-# Symphony 2.0 Product Contract
+# FinCtrl Product Contract
 
-Symphony is a local-first conversation runtime for direct model chat and an honest record of every external action. Stage 6 keeps the answer primary while adding bounded file retrieval, semantic conversation memory and explicit vision/OCR to trusted documents, skills and the strictly isolated persistent project workspace.
+FinCtrl is a local-first conversation runtime for direct model chat and an honest record of every external action. Stage 6 keeps the answer primary while adding bounded file retrieval, semantic conversation memory and explicit vision/OCR to trusted documents, skills and the strictly isolated persistent project workspace.
 
 ## Product character
 
 - Quiet, direct, dependable.
 - Ordinary conversation goes directly to the selected model.
-- Tool actions are public, durable, and recoverable. Provider-emitted reasoning traces may be shown verbatim and labelled as model output; Symphony never fabricates or claims access to hidden reasoning.
+- Tool actions are public, durable, and recoverable. Provider-emitted reasoning traces may be shown verbatim and labelled as model output; FinCtrl never fabricates or claims access to hidden reasoning.
 - A new chat is truly empty: no message, context, action, or file crosses the session boundary.
 - Failed and cancelled work can be retried as a new immutable turn.
 

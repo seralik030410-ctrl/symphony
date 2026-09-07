@@ -39,7 +39,7 @@ function Save-Profile([string]$Title, [string]$BaseUrl, [string]$Model, [string]
 }
 
 Write-Host ""
-Write-Host "Symphony 2.0 - remote API profile" -ForegroundColor Cyan
+Write-Host "FinCtrl - remote API profile" -ForegroundColor Cyan
 Write-Host "Ollama remains available. This adds one remote profile beside it."
 Write-Host ""
 Write-Host "  1. Z.AI / GLM"
@@ -52,7 +52,7 @@ $choice = Read-Host "Choose 1-5"
 if ($choice -eq "5") {
     Save-Profile "OpenAI-compatible API" "http://127.0.0.1:1234/v1" "local-model" ""
     Write-Host "Remote cloud credentials cleared. Local Ollama is unchanged." -ForegroundColor Green
-    Write-Host "Restart Symphony for the change to apply."
+    Write-Host "Restart FinCtrl for the change to apply."
     exit 0
 }
 
@@ -90,5 +90,5 @@ try {
 }
 Write-Host ""
 Write-Host "Saved locally to .env. The key is ignored by Git and release packaging." -ForegroundColor Green
-Write-Host "Restart Symphony, open Settings -> General, and choose $title / $model."
+Write-Host "Restart FinCtrl, open Settings -> General, and choose $title / $model."
 Write-Host "Only prompts sent through that selected profile leave the computer."

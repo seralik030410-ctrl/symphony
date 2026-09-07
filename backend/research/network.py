@@ -107,7 +107,7 @@ class SafeWebClient:
             target = httpx.URL(url).copy_with(host=addresses[0])
             try:
                 async with httpx.AsyncClient(transport=self.transport, trust_env=False, timeout=15, follow_redirects=False) as client:
-                    async with client.stream("GET", target, headers={"Host": host, "User-Agent": "Symphony/0.7 (+local research)", "Accept": "text/html,text/plain,application/json", "Accept-Encoding": "identity"}, extensions={"sni_hostname": host}) as response:
+                    async with client.stream("GET", target, headers={"Host": host, "User-Agent": "FinCtrl/0.7 (+local research)", "Accept": "text/html,text/plain,application/json", "Accept-Encoding": "identity"}, extensions={"sni_hostname": host}) as response:
                         if response.status_code in (301, 302, 303, 307, 308):
                             location = response.headers.get("location")
                             if not location:

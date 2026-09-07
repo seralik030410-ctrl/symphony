@@ -46,11 +46,11 @@ export function MessageList({
     return (
       <section className="empty-conversation" aria-labelledby="empty-title">
         <div className="empty-mark" aria-hidden="true">
-          S2
+          FC
         </div>
         <h1 id="empty-title">Начните разговор</h1>
         <p>
-          Обычный запрос отправляется напрямую выбранной модели. Для файловых задач Symphony
+          Обычный запрос отправляется напрямую выбранной модели. Для файловых задач FinCtrl
           показывает файловые действия и команды sandbox. Навык подключается только явно или по
           совпадению с запросом; document router в обычном чате не участвует.
         </p>
@@ -67,7 +67,7 @@ export function MessageList({
         return (
           <article className={`message message-${message.role}`} key={message.id}>
             <div className="message-label">
-              {message.role === "user" ? "Вы" : "Symphony"}
+              {message.role === "user" ? "Вы" : "FinCtrl"}
             </div>
             {message.role === "assistant" && turn ? <TurnProgress turn={turn} events={turnEvents} /> : null}
             {message.content ? (

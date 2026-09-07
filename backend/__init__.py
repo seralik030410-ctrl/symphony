@@ -1,2 +1,1 @@
-"""Symphony 2.0 backend package."""
-
+"""FinCtrl backend package."""

@@ -50,7 +50,7 @@ export function ContextBudget({ session, active, onSaved }: {
       </div>
       <div className="context-budget-footer">
         <p>{maximum === null ? error ? "Не удалось получить предел модели." : "Проверяем лимит модели…" : `Предел для ${session.model}: ${maximum.toLocaleString("ru-RU")} токенов. 16K — стандарт, 32K — для длинных задач.`}</p>
-        <details><summary>Как применяются лимиты</summary><p>{session.provider === "ollama" ? "Ollama получает длину контекста в num_ctx и лимит ответа в num_predict." : "Окно ограничивает сборку запроса в Symphony, а лимит ответа передаётся как max_tokens. Окно самого API-сервера задаёт провайдер; если максимум неизвестен, Symphony использует 16K."}</p></details>
+        <details><summary>Как применяются лимиты</summary><p>{session.provider === "ollama" ? "Ollama получает длину контекста в num_ctx и лимит ответа в num_predict." : "Окно ограничивает сборку запроса в FinCtrl, а лимит ответа передаётся как max_tokens. Окно самого API-сервера задаёт провайдер; если максимум неизвестен, FinCtrl использует 16K."}</p></details>
         {windowSize >= 65536 ? <p>{windowSize >= 262144 ? "256K+ значительно увеличивает расход памяти. Убедитесь, что модель реально поддерживает такое окно." : "64K+ потребует больше RAM/VRAM и времени на обработку истории."}</p> : null}
         {active ? <p>Остановите текущий ответ, чтобы изменить лимиты.</p> : null}
         {error ? <p role="alert">{error}{maximum === null ? <button className="text-button" onClick={() => setRetry(value => value + 1)}>Повторить проверку</button> : null}</p> : null}

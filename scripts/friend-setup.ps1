@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
 Write-Host ''
-Write-Host 'Symphony 2.0 - first setup' -ForegroundColor Cyan
+Write-Host 'FinCtrl - first setup' -ForegroundColor Cyan
 Write-Host 'This keeps all chats on this computer and binds only to 127.0.0.1.'
 
 $missing = @()
@@ -37,7 +37,7 @@ Write-Host ' - download Python packages;'
 Write-Host ' - start Docker Desktop/Ollama if needed;'
 Write-Host ' - build the isolated runtime image;'
 Write-Host ' - download qwen3.5:9b (about 6.6 GB) if it is missing;'
-Write-Host ' - open Symphony at http://127.0.0.1:8765.'
+Write-Host ' - open FinCtrl at http://127.0.0.1:8765.'
 Write-Host 'It does not upload chats and does not delete Docker data, models or cache.'
 $answer = Read-Host 'Continue? [y/N]'
 if ($answer -notin @('y', 'Y', 'yes', 'YES')) { Write-Host 'Cancelled. Nothing changed.'; exit 0 }

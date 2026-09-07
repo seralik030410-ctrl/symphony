@@ -39,7 +39,7 @@ class DocumentRunner:
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         except OSError as error:
-            raise ToolError("document_runtime_unavailable", "Start Docker and rebuild the Symphony runtime with START.bat") from error
+            raise ToolError("document_runtime_unavailable", "Start Docker and rebuild the FinCtrl runtime with START.bat") from error
         try:
             stdout, stderr, code = await asyncio.wait_for(asyncio.gather(
                 self.sandbox._read_limited(process.stdout, "stdout", on_output),

@@ -284,7 +284,7 @@ export default function App() {
         await openSession(target);
       } catch (cause) {
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : "Symphony не запустилась");
+          setError(cause instanceof Error ? cause.message : "FinCtrl не запустился");
         }
       } finally {
         if (!cancelled) setInitializing(false);
@@ -496,7 +496,7 @@ export default function App() {
   if (initializing) {
     return (
       <main className="boot-screen">
-        <div className="boot-mark">S2</div>
+        <div className="boot-mark">FC</div>
         <p>Восстанавливаем чаты</p>
         <div className="boot-line" />
       </main>
@@ -520,9 +520,9 @@ export default function App() {
       {(chatsOpen || eventsOpen) ? <button className="panel-scrim" aria-label="Закрыть боковые панели" onClick={() => { setChatsOpen(false); setEventsOpen(false); }} /> : null}
       {chatsOpen ? <aside className="session-rail" aria-label="Чаты">
         <div className="brand-row">
-          <div className="brand-mark" aria-hidden="true">S2</div>
+          <div className="brand-mark" aria-hidden="true">FC</div>
           <div>
-            <strong>Symphony</strong>
+            <strong>FinCtrl</strong>
             <span>Chat runtime</span>
           </div>
         </div>

@@ -29,7 +29,7 @@ async def report(runtime):
     with runtime.database.read() as connection:
         migrations = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
     desktop = os.getenv("SYMPHONY_DESKTOP") == "1"
-    return {"schema_version": 1, "generated_at": utc_now(), "application": "Symphony 2.0", "release": "0.7.0-dev",
+    return {"schema_version": 1, "generated_at": utc_now(), "application": "FinCtrl", "release": "0.7.0-dev",
             "platform": platform.system(), "architecture": platform.machine(), "python": platform.python_version(),
             "installation_mode": "desktop-sidecar" if desktop else "local-web",
             "sqlite": sqlite3.sqlite_version, "packages": packages, "checks": checks, "migrations": migrations,
@@ -48,5 +48,5 @@ async def bundle(request: Request):
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("diagnostics.json", json.dumps(payload, ensure_ascii=False, indent=2))
-        archive.writestr("README.txt", "Symphony diagnostics. This archive intentionally omits chats, files, keys, environment variables and raw logs. Review diagnostics.json before sharing.\n")
-    return Response(output.getvalue(), media_type="application/zip", headers={"Content-Disposition": 'attachment; filename="symphony-diagnostics.zip"', "Cache-Control": "no-store"})
+        archive.writestr("README.txt", "FinCtrl diagnostics. This archive intentionally omits chats, files, keys, environment variables and raw logs. Review diagnostics.json before sharing.\n")
+    return Response(output.getvalue(), media_type="application/zip", headers={"Content-Disposition": 'attachment; filename="finctrl-diagnostics.zip"', "Cache-Control": "no-store"})

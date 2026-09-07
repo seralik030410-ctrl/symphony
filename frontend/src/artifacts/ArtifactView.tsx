@@ -44,7 +44,7 @@ export function ArtifactView({ sessionId, artifactId, revision }: { sessionId: s
       if (event.key in positions) { event.preventDefault(); viewport.scrollTop = positions[event.key]; }
     }}>
       {table ? <><div className="artifact-table-scroll" tabIndex={0} aria-label={`Таблица ${table.name}`}><table className="artifact-table"><thead><tr><th scope="col">#</th>{table.columns.map((col, i) => <th key={i} scope="col">{col.name}</th>)}</tr></thead><tbody>{table.rows.map((row, r) => <tr key={r}><th scope="row">{r + 2}</th>{row.map((value, c) => <td key={c}>{value === null ? "—" : String(value)}</td>)}</tr>)}</tbody></table></div>
-        <p className="workspace-footnote">{table.truncated ? `Первые ${table.rows.length} из ${table.total_rows} строк. Полная таблица — в файле.` : `${table.total_rows} строк.`} Значения формул рассчитаны Symphony; Excel пересчитает их при открытии.</p></> : null}
+        <p className="workspace-footnote">{table.truncated ? `Первые ${table.rows.length} из ${table.total_rows} строк. Полная таблица — в файле.` : `${table.total_rows} строк.`} Значения формул рассчитаны FinCtrl; Excel пересчитает их при открытии.</p></> : null}
       {detail.pages.map((page, index) => <figure className="artifact-page" key={page.url}><img src={page.url} width={page.width} height={page.height} loading={index ? "lazy" : "eager"} alt={`${detail.title}, страница ${index + 1}`} /><figcaption>{index + 1} / {detail.pages.length}</figcaption></figure>)}
       <details className="artifact-validation"><summary><CheckCircle size={16} />Проверки и исходники</summary>
         <p>Схема и выходной файл проверены. {detail.validation.geometry?.checked ? "Проверены границы текста на страницах." : "Проверены типы, формулы и ссылки."}</p>

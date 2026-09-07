@@ -1,4 +1,4 @@
-# Symphony 2.0
+# FinCtrl
 
 Stage 0–6 implementation plus Stage 7 work in progress from [docs/SYMPHONY_2_REBUILD_SPEC.md](docs/SYMPHONY_2_REBUILD_SPEC.md). Short Russian roadmap: [ЭТАПЫ_SYMPHONY.txt](ЭТАПЫ_SYMPHONY.txt). Stage 7 is NOT complete: native compilation and signed macOS acceptance remain; see [docs/STAGE_7_STATUS.md](docs/STAGE_7_STATUS.md).
 
@@ -25,7 +25,7 @@ The current release is a local-first direct chat runtime with observable workspa
 - Opt-in per-chat Internet research through `web.search` and `web.open`, with exact-query approval, exact-domain allowlists, public-HTTPS/SSRF defenses, durable network events and saved URL/publication/check dates. Search candidates are not presented as verified page sources until opened.
 - Privacy-minimal diagnostics in Settings and as a downloadable ZIP. It reports runtime/dependency readiness without conversations, file paths, environment variables, source URLs, secrets or raw logs.
 - System/light/dark application theme in **Settings → General**. The system choice follows OS changes without a reload; documents and sandboxed site previews retain their own colors.
-- A standalone checked runtime kit under **Diagnostics → Dependency setup**. The ZIP contains the matching Docker recipe, SHA-256 manifest and confirm-before-build scripts for Windows/macOS; it requires Docker Desktop but no Symphony checkout, host Python, Node.js or Git.
+- A standalone checked runtime kit under **Diagnostics → Dependency setup**. The ZIP contains the matching Docker recipe, SHA-256 manifest and confirm-before-build scripts for Windows/macOS; it requires Docker Desktop but no FinCtrl checkout, host Python, Node.js or Git.
 - A Tauri 2 desktop candidate with loopback FastAPI sidecar, OS application-data storage, macOS Keychain/Windows Credential Manager integration, tokenized native file drop, HTTPS system opener and signed updater support. Real macOS acceptance remains mandatory.
 - Automated coverage for direct chat, isolation, refresh, Stop, provider parity, workspace security, policy decisions, approval persistence, site build/preview, skills, trusted document generation, artifact integrity/versioning, and cross-chat isolation.
 
@@ -33,11 +33,11 @@ Stage 5 adds structured, versioned PDF/XLSX/DOCX/PPTX generation through trusted
 
 ## Context settings
 
-Local Ollama and one remote OpenAI-compatible API can be available side by side. On Windows run `CONFIGURE_API.bat` for prepared Z.AI/GLM and Qwen/DashScope profiles or a custom endpoint, restart Symphony, then select it per chat under **Настройки → Общее → Модель**. The API key is written only to ignored local `.env`; see [API_PROVIDERS_RU.md](API_PROVIDERS_RU.md). Never commit or share that file.
+Local Ollama and one remote OpenAI-compatible API can be available side by side. On Windows run `CONFIGURE_API.bat` for prepared Z.AI/GLM and Qwen/DashScope profiles or a custom endpoint, restart FinCtrl, then select it per chat under **Настройки → Общее → Модель**. The API key is written only to ignored local `.env`; see [API_PROVIDERS_RU.md](API_PROVIDERS_RU.md). Never commit or share that file.
 
 Open a chat → **Настройки → Контекст и память → Лимиты модели**. Choose 8K / 16K / 32K / 64K and the maximum response length, then save. Both values are persisted per chat. Choices above the selected model's advertised limit are disabled; an unknown provider limit uses the conservative 16K fallback. Settings cannot change while a turn is active. A 64K choice is explicit and can need substantially more RAM/VRAM.
 
-Ollama receives `num_ctx` and `num_predict`; compatible API requests receive `max_tokens`, with Symphony enforcing its own input budget. Changing Symphony's budget cannot enlarge a remote server's actual model window. Ollama model metadata is obtained from [`/api/show`](https://docs.ollama.com/api-reference/show-model-details), not guessed from the model name.
+Ollama receives `num_ctx` and `num_predict`; compatible API requests receive `max_tokens`, with FinCtrl enforcing its own input budget. Changing FinCtrl's budget cannot enlarge a remote server's actual model window. Ollama model metadata is obtained from [`/api/show`](https://docs.ollama.com/api-reference/show-model-details), not guessed from the model name.
 
 Automatic semantic compaction starts around 72% of the available input budget. The selected model summarizes older whole messages into Facts, Decisions, Open tasks and Artifact index through the same Gateway. At least the last ten messages stay verbatim; original history is never deleted. Snapshots retain source message IDs, versions and model usage. **Сжать сейчас** runs it manually; the collapsed editor supports corrections, clearing and version inspection. Model summaries can be imperfect: inspect important facts. Clearing creates an empty version; a later full window may trigger a new summary.
 
@@ -45,7 +45,7 @@ Automatic semantic compaction starts around 72% of the available input budget. T
 
 The preflight budget includes instructions, schemas, unsummarized history, memory, retrieved excerpts, images, output and a tool-result reserve. Token counts before a response are estimates (roughly characters/3 plus message/image overhead); reported provider usage is shown separately. If whole recent messages still cannot fit, the turn fails with an actionable context-limit error rather than silently cutting the user's request. Compaction uses additional model calls and time; ordinary short chat does not.
 
-After backend changes, restart the running Symphony backend and reload the browser. Rebuilding `frontend/dist` alone does not update an already-running Python process. `START.bat` starts dependencies but does not kill an existing backend or active turns.
+After backend changes, restart the running FinCtrl backend and reload the browser. Rebuilding `frontend/dist` alone does not update an already-running Python process. `START.bat` starts dependencies but does not kill an existing backend or active turns.
 
 ## Sharing with a Windows friend
 
@@ -80,11 +80,19 @@ If the configured Ollama default is missing, new chats select an installed local
 
 ## Run
 
-One-click Windows launch (starts Docker Desktop, builds the sandbox image when needed, starts Ollama and Symphony, then opens the browser):
+One-click Windows launch (starts Docker Desktop, builds the sandbox image when needed, starts Ollama and FinCtrl, then opens the browser):
 
 ```text
 START.bat
 ```
+
+One-click macOS launch:
+
+```text
+START.command
+```
+
+Install Python 3.12+, [Ollama for macOS](https://ollama.com/download/mac), and optionally Docker Desktop, then double-click `START.command`. On the first launch macOS may require **Control-click → Open**. The launcher creates `.venv`, uses the checked-in production frontend, starts Ollama/Docker when available, checks `qwen3.5:9b`, starts the local backend and opens the browser. Docker is required only for tools, document generation and OCR. Terminal alternative: `bash scripts/start-macos.sh`. See [MAC_SETUP_RU.txt](MAC_SETUP_RU.txt).
 
 The production frontend and API share [http://127.0.0.1:8765](http://127.0.0.1:8765). Development Vite remains available separately on port `5173`.
 
@@ -107,7 +115,7 @@ Vite runs at [http://127.0.0.1:5173](http://127.0.0.1:5173) and proxies `/api` t
 
 ### macOS release candidate
 
-Desktop source is not yet natively compiled or packaged. On the target MacBook run `bash scripts/check-stage7-macos.sh`, configure `src-tauri/tauri.release.conf.json` with a real updater public key/HTTPS endpoint, export signing/notarization variables and run `bash scripts/build-macos.sh`. The build uses `.venv-desktop`, the npm-locked Tauri CLI and a real frozen-backend smoke test. Windows cannot validate Keychain/Gatekeeper/DMG. Complete remaining work and checklist: [docs/STAGE_7_STATUS.md](docs/STAGE_7_STATUS.md).
+`START.command` runs the web application locally and is ready for ordinary use; it is not a signed native `.app`. Desktop source is not yet natively compiled or packaged. On the target MacBook run `bash scripts/check-stage7-macos.sh`, configure `src-tauri/tauri.release.conf.json` with a real updater public key/HTTPS endpoint, export signing/notarization variables and run `bash scripts/build-macos.sh`. The build uses `.venv-desktop`, the npm-locked Tauri CLI and a real frozen-backend smoke test. Windows cannot validate Keychain/Gatekeeper/DMG. Complete remaining work and checklist: [docs/STAGE_7_STATUS.md](docs/STAGE_7_STATUS.md).
 
 ### Research preview
 
@@ -115,7 +123,7 @@ Desktop source is not yet natively compiled or packaged. On the target MacBook r
 
 Live page reads, citations and candidate search worked with Ollama and DuckDuckGo Lite. Search still requires explicit review of the exact outgoing query; there is no hidden fallback to another provider. A candidate must be opened before it can support a claim. Reproduce the opt-in check with `python -m scripts.verify_live_stage7` (fixed public test data, separate ignored database, local Ollama).
 
-If Docker Desktop fails (including the observed Windows `dockerInference` socket error), basic chat and host research still run; diagnostics explains sandbox availability. No factory reset is needed by Symphony, and the launcher does not delete Docker images/volumes. The engine was available again at the final Stage 7 check.
+If Docker Desktop fails (including the observed Windows `dockerInference` socket error), basic chat and host research still run; diagnostics explains sandbox availability. No factory reset is needed by FinCtrl, and the launcher does not delete Docker images/volumes. The engine was available again at the final Stage 7 check.
 
 ## Test and build
 
@@ -279,7 +287,7 @@ The supplied `skill_for_s` library was audited and imported as 31 unique Explici
 - Top toolbar toggles the chat rail and event ledger. The code icon opens **Файлы проекта**; Preview opens the generated site in its own tab. The workspace's rightmost button hides it without closing tabs.
 - **+** in the workspace opens a chooser for files, available builds and Changes. Close tabs with ×; arrow keys/Home/End navigate the tab bar. Drag the divider or use its arrow keys to resize. On narrow screens the panel occupies the app area; its hide button returns to the chat.
 - File views are read-only. Change code through the chat tools; inspection does not bypass the approval system. Changes defaults to the snapshot before the latest turn that modified the project. Select another snapshot for a different baseline. This is a source comparison, not a Git branch/commit interface.
-- Preview runs JavaScript in an opaque-origin sandbox. It cannot read Symphony storage or call its API. External network requests, browser alerts/popups, forms and top-level navigation are blocked. Use in-page UI for notifications. Static HTML/CSS/JS previews are supported; arbitrary localhost servers and external browsing are not.
+- Preview runs JavaScript in an opaque-origin sandbox. It cannot read FinCtrl storage or call its API. External network requests, browser alerts/popups, forms and top-level navigation are blocked. Use in-page UI for notifications. Static HTML/CSS/JS previews are supported; arbitrary localhost servers and external browsing are not.
 
 ### Permission and recovery details
 

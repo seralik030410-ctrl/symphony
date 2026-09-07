@@ -1,5 +1,5 @@
 @echo off
-title Symphony 2.0 - First setup
+title FinCtrl - First setup
 cd /d "%~dp0"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\friend-setup.ps1"
 if errorlevel 1 (

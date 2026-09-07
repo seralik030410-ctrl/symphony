@@ -23,4 +23,4 @@ if (-not $SkipFrontend) {
     }
 }
 
-Write-Host "Symphony dependencies are ready."
+Write-Host "FinCtrl dependencies are ready."

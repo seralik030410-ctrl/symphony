@@ -70,7 +70,7 @@ function Wait-Until([scriptblock]$Check, [int]$Seconds, [string]$Label) {
 }
 
 Write-Host ""
-Write-Host "Symphony 2.0" -ForegroundColor Cyan
+Write-Host "FinCtrl" -ForegroundColor Cyan
 Write-Host "Starting Ollama, Docker sandbox, frontend, and backend..."
 
 $frontendBuilt = Test-Path -LiteralPath $frontendIndex
@@ -174,7 +174,7 @@ if ($needsFrontendBuild) {
 }
 
 if (Test-HttpEndpoint "http://127.0.0.1:8765/api/health") {
-    Write-Host "[4/4] Symphony is already running." -ForegroundColor Green
+    Write-Host "[4/4] FinCtrl is already running." -ForegroundColor Green
 } else {
     $pythonPath = if (Test-Path -LiteralPath $venvPython) { $venvPython } else { (Get-Command python).Source }
     $stdoutLog = Join-Path $logsPath "symphony.stdout.log"
@@ -187,10 +187,10 @@ if (Test-HttpEndpoint "http://127.0.0.1:8765/api/health") {
         -RedirectStandardError $stderrLog `
         -WindowStyle Hidden `
         -PassThru
-    if (-not (Wait-Until { Test-HttpEndpoint "http://127.0.0.1:8765/api/health" } 30 "Symphony backend")) {
-        throw "Symphony backend failed to start. Check $stderrLog"
+    if (-not (Wait-Until { Test-HttpEndpoint "http://127.0.0.1:8765/api/health" } 30 "FinCtrl backend")) {
+        throw "FinCtrl backend failed to start. Check $stderrLog"
     }
-    Write-Host "[4/4] Symphony backend is ready (PID $($backend.Id))." -ForegroundColor Green
+    Write-Host "[4/4] FinCtrl backend is ready (PID $($backend.Id))." -ForegroundColor Green
 }
 
 Write-Host ""

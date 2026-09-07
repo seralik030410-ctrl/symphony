@@ -128,7 +128,7 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
         await turn_service.shutdown()
 
     application = FastAPI(
-        title="Symphony 2.0",
+        title="FinCtrl",
         version="0.7.0-dev",
         description="Stage 7 research preview: direct chat, bounded host networking and local-first desktop shell",
         lifespan=lifespan,

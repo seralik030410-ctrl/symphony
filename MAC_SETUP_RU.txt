@@ -1,0 +1,39 @@
+FINCTRL — ЗАПУСК НА macOS
+
+Перед первым запуском установите:
+1. Python 3.12 или новее: https://www.python.org/downloads/macos/
+2. Ollama: https://ollama.com/download/mac
+3. Docker Desktop (необязательно для обычного чата):
+   https://www.docker.com/products/docker-desktop/
+
+Полностью распакуйте архив FinCtrl. Не запускайте файл прямо внутри ZIP.
+В Finder дважды нажмите START.command. При первом запуске macOS может
+заблокировать неизвестный shell-файл: нажмите Control + клик по START.command,
+выберите «Открыть» и подтвердите запуск.
+
+Можно запустить из Terminal:
+
+  cd /путь/к/symphony
+  chmod +x START.command scripts/start-macos.sh
+  ./START.command
+
+Launcher создаёт локальную .venv, устанавливает Python-зависимости, запускает
+Ollama и FinCtrl, проверяет модель qwen3.5:9b и открывает:
+
+  http://127.0.0.1:8765
+
+Если модель отсутствует, Terminal предложит скачать её. Это несколько гигабайт.
+Для автоматической загрузки без вопроса используйте:
+
+  SYMPHONY_PULL_MISSING_MODEL=1 ./START.command
+
+Обычный чат работает без Docker. Docker нужен для инструментов, запуска кода,
+создания документов, OCR и изолированного preview. Если Docker не запущен,
+launcher продолжит работу и явно сообщит об отключённых возможностях.
+
+Логи находятся в data/logs. Чаты и файлы находятся только в локальной папке
+data. Не пересылайте эту папку другим людям. FinCtrl слушает только
+127.0.0.1; не публикуйте порт 8765 в сеть.
+
+START.command запускает локальную web-версию. Это пока не подписанное нативное
+приложение .app/DMG.

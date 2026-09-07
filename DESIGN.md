@@ -1,8 +1,8 @@
-# Symphony 2.0 Design Direction
+# FinCtrl Design Direction
 
 ## Scene
 
-A person uses Symphony on a laptop through a long workday in mixed daylight, moving between short questions and sustained conversations; the screen must remain light, quiet, and legible without looking clinical.
+A person uses FinCtrl on a laptop through a long workday in mixed daylight, moving between short questions and sustained conversations; the screen must remain light, quiet, and legible without looking clinical.
 
 ## Register and system
 

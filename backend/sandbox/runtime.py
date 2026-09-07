@@ -150,7 +150,7 @@ class DockerSandboxRuntime:
         except (FileNotFoundError, OSError) as exc:
             raise ToolError(
                 "sandbox_unavailable",
-                "Docker is unavailable. Install/start Docker and build the Symphony runtime image.",
+                "Docker is unavailable. Install/start Docker and build the FinCtrl runtime image.",
             ) from exc
         self._containers[turn_id] = container_name
         self._processes[turn_id] = process

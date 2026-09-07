@@ -32,4 +32,4 @@ $imageJson = docker image inspect symphony-sandbox:stage3
 if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the built image.' }
 $imageInfo = $imageJson | ConvertFrom-Json
 if ($imageInfo[0].Config.Labels.'com.symphony.runtime.version' -ne '6.0') { throw 'Unexpected runtime version after build.' }
-Write-Host 'Runtime ready. Reopen Settings > General in Symphony to refresh diagnostics.'
+Write-Host 'Runtime ready. Reopen Settings > General in FinCtrl to refresh diagnostics.'

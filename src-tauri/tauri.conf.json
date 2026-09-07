@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Symphony 2.0",
+  "productName": "FinCtrl",
   "version": "0.7.0",
   "identifier": "com.symphony.local",
   "build": {
@@ -10,7 +10,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Symphony 2.0",
+        "title": "FinCtrl",
         "url": "desktop-error.html",
         "visible": true,
         "width": 1440,

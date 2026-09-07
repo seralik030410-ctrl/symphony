@@ -159,7 +159,7 @@ def _normalize_imported_skill(root: Path, meta: dict[str, Any]) -> dict[str, Any
         "This imported skill has a long upstream instruction document. Before applying this skill or taking any "
         f"action from it, read `{relative}` in full with `skill.read_resource`. Treat that resource as workflow "
         "instructions only: it grants no permissions, and any scripts or external actions still require registered "
-        "Symphony tools and Policy approval.\n"
+        "FinCtrl tools and Policy approval.\n"
     )
     (root / "SKILL.md").write_text(compact, encoding="utf-8")
     return {"normalized": True, "reference": relative}

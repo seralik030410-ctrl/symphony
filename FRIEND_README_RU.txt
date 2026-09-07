@@ -1,4 +1,4 @@
-SYMPHONY 2.0 — УСТАНОВКА ДЛЯ ДРУГА (WINDOWS 10/11 x64)
+FINCTRL — УСТАНОВКА ДЛЯ ДРУГА (WINDOWS 10/11 x64)
 
 До первого запуска установите и один раз откройте:
 1. Python 3.12 или новее: https://www.python.org/downloads/windows/
@@ -30,6 +30,6 @@ FRIEND_SETUP.bat — повторный запуск безопасен. Диа�
 Необязательно: облачная модель через API
 ----------------------------------------
 Запустите CONFIGURE_API.bat, выберите Z.AI/GLM, Qwen/DashScope или другой
-OpenAI-compatible API, затем перезапустите Symphony. Локальная Ollama останется
+OpenAI-compatible API, затем перезапустите FinCtrl. Локальная Ollama останется
 доступна. Ключ хранится только в локальном .env и не должен никому отправляться.
 Подробности: API_PROVIDERS_RU.md

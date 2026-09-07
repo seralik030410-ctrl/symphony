@@ -23,7 +23,7 @@ def runtime_kit(root: Path) -> bytes:
                 raise OSError("Invalid packaged runtime resource")
             payloads[name] = path.read_bytes()
     except OSError as exc:
-        raise HTTPException(503, "Runtime kit is missing or incomplete. Reinstall Symphony; no host changes were made.") from exc
+        raise HTTPException(503, "Runtime kit is missing or incomplete. Reinstall FinCtrl; no host changes were made.") from exc
     hashes = {name: hashlib.sha256(content).hexdigest() for name, content in payloads.items()}
     payloads["SHA256SUMS"] = "".join(f"{sha}  {name}\n" for name, sha in hashes.items()).encode()
     payloads["manifest.json"] = json.dumps({"schema_version": 1, "runtime_version": "6.0", "image": "symphony-sandbox:stage3", "sha256": hashes}, indent=2).encode()

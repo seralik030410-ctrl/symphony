@@ -75,7 +75,7 @@ class ReportSpec(StrictModel):
 
 class DocumentSpec(ReportSpec):
     header: Annotated[str, Field(max_length=160)] = ""
-    footer: Annotated[str, Field(max_length=160)] = "Symphony"
+    footer: Annotated[str, Field(max_length=160)] = "FinCtrl"
 
 
 class ColumnSpec(StrictModel):

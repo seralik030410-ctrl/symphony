@@ -61,7 +61,7 @@ class PreviewInput(ToolInput):
 class PreviewTool(Tool):
     name = "sandbox.preview"
     title = "Open site preview"
-    description = "Publish an HTML entry from this chat workspace through Symphony's read-only preview route."
+    description = "Publish an HTML entry from this chat workspace through FinCtrl's read-only preview route."
     input_model = PreviewInput
 
     def __init__(self, workspaces: WorkspaceManager) -> None:

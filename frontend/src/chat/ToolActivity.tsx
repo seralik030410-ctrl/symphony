@@ -202,7 +202,7 @@ export function ToolActivity({ events, decidingApprovalId, onApproval, onPreview
               {call.previewUrl ? (
                 <button type="button" className="preview-link" onClick={() => onPreview(call.previewUrl!)}>
                   <ArrowSquareOut size={16} weight="bold" aria-hidden="true" />
-                  Открыть в Symphony
+                  Открыть в FinCtrl
                 </button>
               ) : null}
               {call.changedFiles.length ? (

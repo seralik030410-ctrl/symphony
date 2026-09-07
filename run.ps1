@@ -17,9 +17,8 @@ if (-not (Test-Path -LiteralPath $indexPath)) {
 
 Push-Location $projectRoot
 try {
-    Write-Host "Symphony 2.0: http://127.0.0.1:8765"
+    Write-Host "FinCtrl: http://127.0.0.1:8765"
     & $pythonPath -m uvicorn backend.main:app --host 127.0.0.1 --port 8765
 } finally {
     Pop-Location
 }
-

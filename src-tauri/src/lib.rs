@@ -10,6 +10,7 @@ use std::{
 use tauri::{DragDropEvent, Emitter, Manager};
 use tauri_plugin_shell::{process::{CommandChild, CommandEvent}, ShellExt};
 
+// Keep the legacy credential namespace so existing API keys remain available after the rename.
 const SERVICE_NAME: &str = "Symphony 2.0";
 const OPENAI_KEY_ACCOUNT: &str = "openai-compatible-api-key";
 const API_ADDRESS: &str = "http://127.0.0.1:8765";
@@ -27,7 +28,7 @@ struct StartupMessage(Mutex<Option<String>>);
 fn require_main(window: &tauri::WebviewWindow) -> Result<(), String> {
     let url = window.url().map_err(|_| "Окно недоступно")?;
     if window.label() != "main" || url.as_str() != format!("{API_ADDRESS}/") {
-        return Err("Desktop-команды разрешены только главному окну Symphony".into());
+        return Err("Desktop-команды разрешены только главному окну FinCtrl".into());
     }
     Ok(())
 }
@@ -139,7 +140,7 @@ fn start_backend(app: &tauri::App) -> Result<CommandChild, Box<dyn std::error::E
                 CommandEvent::Terminated(_) => {
                     handle.state::<Lifecycle>().stopped.store(true, Ordering::SeqCst);
                     if !handle.state::<Lifecycle>().exiting.load(Ordering::SeqCst) {
-                        show_startup_error(&handle, "Локальный runtime остановлен. Перезапустите Symphony; проверьте, свободен ли порт 8765.");
+                        show_startup_error(&handle, "Локальный runtime остановлен. Перезапустите FinCtrl; проверьте, свободен ли порт 8765.");
                     }
                 }
                 _ => {} // Raw process output may contain sensitive data; do not forward it.
@@ -231,7 +232,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building Symphony 2.0")
+        .expect("error while building FinCtrl")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
                 let lifecycle = app.state::<Lifecycle>();

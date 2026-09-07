@@ -123,9 +123,9 @@ def render_pdf(spec: ReportSpec, target: Path):
         canvas.saveState()
         canvas.setStrokeColor(colors.HexColor("#D8E1E4")); canvas.line(48, 39, A4[0] - 48, 39)
         canvas.setFont("Symphony", 8); canvas.setFillColor(colors.HexColor("#60727C"))
-        canvas.drawString(48, 25, "Symphony · " + spec.preset.replace("_", " "))
+        canvas.drawString(48, 25, "FinCtrl · " + spec.preset.replace("_", " "))
         canvas.drawRightString(A4[0] - 48, 25, str(doc.page)); canvas.restoreState()
-    SimpleDocTemplate(str(target), pagesize=A4, rightMargin=52, leftMargin=52, topMargin=48, bottomMargin=55, title=spec.title, author="Symphony").build(story, onFirstPage=footer, onLaterPages=footer)
+    SimpleDocTemplate(str(target), pagesize=A4, rightMargin=52, leftMargin=52, topMargin=48, bottomMargin=55, title=spec.title, author="FinCtrl").build(story, onFirstPage=footer, onLaterPages=footer)
 
 
 def render_workbook(spec: WorkbookSpec, target: Path):
@@ -170,7 +170,7 @@ def render_workbook(spec: WorkbookSpec, target: Path):
             for cell in row:
                 if cell.data_type == "f" and cell.coordinate not in sheet.formulas: raise ValueError("Unexpected formula injection")
     reopened.close()
-    return {"tables": tables, "calculation": calculation, "warnings": ["Excel recalculates formulas when opened; preview values come from Symphony's bounded calculator."] if calculation["formula_count"] else []}
+    return {"tables": tables, "calculation": calculation, "warnings": ["Excel recalculates formulas when opened; preview values come from FinCtrl's bounded calculator."] if calculation["formula_count"] else []}
 
 
 def render_docx(spec: DocumentSpec, target: Path):
@@ -252,7 +252,7 @@ def render_slides(spec: SlideSpec, target: Path):
             scale = min(11.5 / w, 4.2 / h)
             slide.shapes.add_picture(io.BytesIO(raw), Inches((13.333 - w * scale) / 2), Inches(2.1), width=Inches(w * scale), height=Inches(h * scale))
             text(slide, item.image.caption, .7, 6.4, 11.9, .35, 10)
-        text(slide, f"Symphony    /    {index:02d}", .7, 7.03, 12, .3, 10, color="677780")
+        text(slide, f"FinCtrl    /    {index:02d}", .7, 7.03, 12, .3, 10, color="677780")
         if item.notes: slide.notes_slide.notes_text_frame.text = item.notes
     prs.save(target)
     check = Presentation(target)

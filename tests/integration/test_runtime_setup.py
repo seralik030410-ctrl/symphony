@@ -38,7 +38,7 @@ async def test_incomplete_packaging_returns_actionable_error_without_paths(clien
     monkeypatch.setattr(setup, "KIT_ROOT", tmp_path / "PRIVATE_PACKAGE_PATH")
     response = await client.get("/api/setup/runtime-kit")
     assert response.status_code == 503
-    assert "Reinstall Symphony" in response.text
+    assert "Reinstall FinCtrl" in response.text
     assert "PRIVATE_PACKAGE_PATH" not in response.text
 
 
