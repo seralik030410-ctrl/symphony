@@ -1,0 +1,597 @@
+/* FinControl IDE - Office Studio Theme & Layout */
+
+.office-studio {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--canvas);
+  color: var(--text);
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.office-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.office-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.office-format-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.badge-docx {
+  background: #2b579a;
+  color: #fff;
+}
+
+.badge-xlsx {
+  background: #217346;
+  color: #fff;
+}
+
+.badge-pptx {
+  background: #d24726;
+  color: #fff;
+}
+
+.badge-pdf {
+  background: #e02424;
+  color: #fff;
+}
+
+.badge-generic {
+  background: var(--selected);
+  color: var(--text);
+}
+
+.office-filename {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.office-meta-pill {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--subtle);
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.office-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.office-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+
+.office-btn:hover {
+  background: var(--hover);
+}
+
+.office-btn:active {
+  transform: scale(0.98);
+}
+
+.office-btn-primary {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+
+.office-btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.office-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.office-toast {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--success-surface);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Content Area */
+.office-content-area {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* DOCX Paper View */
+.office-paper-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 16px 60px;
+  display: flex;
+  justify-content: center;
+}
+
+.office-paper {
+  width: 100%;
+  max-width: 800px;
+  background: var(--paper);
+  color: #111827;
+  padding: 52px 64px;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px var(--shadow), 0 0 0 1px var(--border);
+  min-height: 900px;
+  box-sizing: border-box;
+}
+
+.office-paper h1.doc-heading-0,
+.office-paper h1.doc-heading-1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 20px 0;
+  color: #1e293b;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.office-paper h2.doc-heading-2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 24px 0 12px 0;
+  color: #334155;
+}
+
+.office-paper h3.doc-heading-3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 18px 0 8px 0;
+  color: #475569;
+}
+
+.office-paper p.doc-paragraph {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0 0 14px 0;
+  color: #1e293b;
+}
+
+.office-paper .doc-table-wrapper {
+  margin: 18px 0 24px 0;
+  overflow-x: auto;
+}
+
+.office-paper table.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.office-paper table.doc-table th,
+.office-paper table.doc-table td {
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.office-paper table.doc-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.office-paper table.doc-table td input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  padding: 2px 0;
+  outline: none;
+}
+
+.office-paper table.doc-table td input:focus {
+  background: #e0f2fe;
+  border-radius: 2px;
+}
+
+/* XLSX Spreadsheet Studio */
+.office-spreadsheet-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.office-formula-bar {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  font-size: 13px;
+}
+
+.office-cell-address {
+  font-weight: 700;
+  font-family: monospace;
+  padding: 3px 8px;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-width: 44px;
+  text-align: center;
+}
+
+.office-formula-fx {
+  font-style: italic;
+  font-weight: 700;
+  color: var(--muted);
+  user-select: none;
+}
+
+.office-formula-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: monospace;
+  font-size: 12px;
+  outline: none;
+}
+
+.office-formula-input:focus {
+  border-color: var(--accent);
+}
+
+.office-grid-scroll {
+  flex: 1;
+  overflow: auto;
+  background: var(--canvas);
+}
+
+.office-sheet-grid {
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 100%;
+}
+
+.office-sheet-grid th {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  padding: 5px 8px;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  user-select: none;
+}
+
+.office-sheet-grid th.corner-header {
+  left: 0;
+  z-index: 3;
+}
+
+.office-sheet-grid td.row-header {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  padding: 4px 8px;
+  text-align: center;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  user-select: none;
+}
+
+.office-sheet-grid td.grid-cell {
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: #182027;
+  padding: 0;
+  min-width: 85px;
+  height: 26px;
+  position: relative;
+}
+
+.office-sheet-grid td.grid-cell.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  z-index: 1;
+}
+
+.office-cell-inner {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  color: inherit;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.office-sheets-tabs-bar {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.office-sheet-tab {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px 4px 0 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.office-sheet-tab.active {
+  background: var(--canvas);
+  color: var(--text);
+  border-color: var(--border) var(--border) transparent var(--border);
+  font-weight: 600;
+}
+
+/* PPTX Slide Studio */
+.office-slides-container {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.office-slides-strip {
+  width: 190px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.office-slide-thumb {
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--subtle);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.office-slide-thumb.active {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+
+.office-slide-thumb-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.office-slide-thumb-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.office-slide-canvas-area {
+  flex: 1;
+  overflow: auto;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.office-slide-stage {
+  width: 100%;
+  max-width: 780px;
+  aspect-ratio: 16 / 9;
+  background: var(--paper);
+  color: #0f172a;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px var(--shadow), 0 0 0 1px var(--border);
+  padding: 40px 48px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.office-slide-title-input {
+  font-size: 26px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: #0f172a;
+  outline: none;
+  width: 100%;
+  margin-bottom: 24px;
+  border-bottom: 1px dashed transparent;
+}
+
+.office-slide-title-input:focus {
+  border-bottom-color: var(--accent);
+}
+
+.office-slide-bullets-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.office-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.office-bullet-dot {
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.office-bullet-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #334155;
+  outline: none;
+}
+
+.office-bullet-input:focus {
+  background: #f8fafc;
+}
+
+.office-slide-notes-card {
+  width: 100%;
+  max-width: 780px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.office-slide-notes-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.office-slide-notes-input {
+  width: 100%;
+  min-height: 60px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+}
+
+/* PDF View */
+.office-pdf-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--canvas);
+}
+
+/* Modal Convert */
+.office-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.office-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 380px;
+  padding: 20px;
+  box-shadow: 0 12px 40px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.office-dialog h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.office-dialog select {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--control-border);
+  background: var(--canvas);
+  color: var(--text);
+}

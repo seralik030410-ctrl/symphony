@@ -61,6 +61,8 @@ from backend.runtime import ResourceCoordinator
 from backend.api.resources import router as resources_router
 from backend.api.comfyui import router as comfyui_router
 from backend.api.search import router as search_router
+from backend.api.office import router as office_router
+from backend.tools.office import OfficeInspectTool, OfficeCreateTool, OfficePatchTool, OfficeConvertTool
 
 
 @dataclass(slots=True)
@@ -133,7 +135,8 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
     web_client = SafeWebClient()
     for tool in [DocumentSchemaTool(), RenderDocumentTool(artifacts), InspectArtifactTool(artifacts), ReadTableTool(workspaces),
                  IndexFileTool(file_index), SearchContextTool(file_index), OcrImageTool(file_index, sandbox),
-                 WebSearchTool(research, web_client), WebOpenTool(research, web_client)]:
+                 WebSearchTool(research, web_client), WebOpenTool(research, web_client),
+                 OfficeInspectTool(workspaces), OfficeCreateTool(workspaces), OfficePatchTool(workspaces), OfficeConvertTool(workspaces)]:
         tools.tools[tool.name] = tool
     agent_tasks = AgentTaskStore(database, lazy_tools_default=active_settings.agent_lazy_tools_enabled)
     agent_learning = LearningProposalStore(database)
@@ -250,6 +253,7 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
     application.include_router(resources_router)
     application.include_router(comfyui_router)
     application.include_router(search_router)
+    application.include_router(office_router)
 
     frontend_dist = PROJECT_ROOT / "frontend" / "dist"
     if frontend_dist.exists():

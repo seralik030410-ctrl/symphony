@@ -3,8 +3,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, type ProjectChanges, type ProjectFile, type ProjectSnapshot } from "../api";
 import { CustomSelect } from "../ui/CustomSelect";
 import type { TurnEvent } from "../types";
-import { closeTab, diffRows, openTab, restoreWorkspace, type OpenWorkspace } from "./state";
+import { closeTab, diffRows, isOfficePath, openTab, restoreWorkspace, type OpenWorkspace } from "./state";
 import { ArtifactView } from "../artifacts/ArtifactView";
+import { OfficeStudio } from "./OfficeStudio";
 import type { ArtifactSummary } from "../api";
 
 function SyntaxLine({ text }: { text: string }) {
@@ -25,7 +26,22 @@ function FileView({ sessionId, path, revision }: { sessionId: string; path: stri
   }, [sessionId, path, revision]);
   if (error) return <p className="workspace-notice" role="alert">{error}</p>;
   if (!file) return <p className="workspace-notice" role="status">Загружаем файл…</p>;
-  if (file.binary) return <p className="workspace-notice">Двоичный файл · {file.size.toLocaleString()} байт. Текстовый просмотр недоступен.</p>;
+  if (file.binary) {
+    return <div style={{ padding: "16px" }}>
+      <p className="workspace-notice">Двоичный файл · {file.size.toLocaleString()} байт.</p>
+      {isOfficePath(path) && (
+        <button
+          className="office-btn office-btn-primary"
+          style={{ marginTop: "12px" }}
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent("symphony:open-workspace", { detail: { kind: "office", path } }));
+          }}
+        >
+          Открыть в Office Studio
+        </button>
+      )}
+    </div>;
+  }
   return <>
     <div className="file-meta"><span>Только чтение · {file.size.toLocaleString()} байт</span>
       <button className="text-button" onClick={async () => { try { await navigator.clipboard.writeText(file.content); setCopied(true); } catch { setError("Буфер обмена недоступен. Выделите код и скопируйте вручную."); } }}>{copied ? "Скопировано" : "Копировать"}</button></div>
@@ -130,7 +146,7 @@ export function WorkspacePanel({ sessionId, events, request, visible, onClose }:
     <header className="workspace-tabs-bar">
       <div className="workspace-tabs" role="tablist" aria-label="Вкладки проекта" ref={tabsRef}>
         {state.tabs.map(tab => {
-          const Icon = tab.kind === "preview" ? Globe : tab.kind === "changes" ? GitDiff : tab.kind === "file" ? Code : tab.kind === "artifact" ? FileText : tab.kind === "files" ? Folder : Plus;
+          const Icon = tab.kind === "preview" ? Globe : tab.kind === "changes" ? GitDiff : tab.kind === "office" ? FileText : tab.kind === "file" ? Code : tab.kind === "artifact" ? FileText : tab.kind === "files" ? Folder : Plus;
           const tabTitle = tab.kind === "artifact" ? artifacts.find(doc => doc.id === tab.path)?.title ?? tab.title : tab.title;
           return <div className="workspace-tab" data-active={tab.id === active.id} key={tab.id}>
             <button role="tab" id={`tab-${tab.id}`} aria-controls="workspace-tab-content" aria-selected={tab.id === active.id} tabIndex={tab.id === active.id ? 0 : -1}
@@ -149,13 +165,14 @@ export function WorkspacePanel({ sessionId, events, request, visible, onClose }:
       <button className="icon-button" aria-label="Добавить вкладку" title="Добавить вкладку" onClick={() => open("new")}><Plus size={18} /></button>
       <button className="icon-button" aria-label="Скрыть рабочую панель" title="Скрыть панель" onClick={onClose}><SidebarSimple size={18} /></button>
     </header>
-    <div className="workspace-address"><span title={active.path ?? ""}>{active.kind === "artifact" ? "Документ текущего чата · Сохранённые версии" : active.path?.replace(`/api/sessions/${sessionId}/preview/`, "/workspace/") ?? (active.kind === "changes" ? "Сравнение сохранённого проекта" : "Проект текущего чата")}</span>
+    <div className="workspace-address"><span title={active.path ?? ""}>{active.kind === "artifact" ? "Документ текущего чата · Сохранённые версии" : active.kind === "office" ? `Office Studio · ${active.path}` : active.path?.replace(`/api/sessions/${sessionId}/preview/`, "/workspace/") ?? (active.kind === "changes" ? "Сравнение сохранённого проекта" : "Проект текущего чата")}</span>
       <button className="icon-button" aria-label="Обновить содержимое панели" title="Обновить" onClick={() => setRevision(value => value + 1)}><ArrowClockwise size={17} /></button></div>
     <section id="workspace-tab-content" className="workspace-tab-content" role="tabpanel" aria-labelledby={`tab-${active.id}`}>
       {active.kind === "preview" ? <iframe key={`${active.id}:${revision}`} title="Предпросмотр созданного сайта" src={active.path} sandbox="allow-scripts" referrerPolicy="no-referrer" />
+        : active.kind === "office" ? <OfficeStudio key={active.id} sessionId={sessionId} path={active.path!} revision={revision + changeId} onOpenAnother={newPath => open(isOfficePath(newPath) ? "office" : "file", newPath)} />
         : active.kind === "file" ? <FileView key={active.id} sessionId={sessionId} path={active.path!} revision={revision + changeId} />
         : active.kind === "artifact" ? <ArtifactView key={active.id} sessionId={sessionId} artifactId={active.path!} revision={revision + changeId} />
-        : active.kind === "changes" ? <ChangesView sessionId={sessionId} revision={revision + changeId} onFile={path => open("file", path)} />
+        : active.kind === "changes" ? <ChangesView sessionId={sessionId} revision={revision + changeId} onFile={path => open(isOfficePath(path) ? "office" : "file", path)} />
         : <div className="workspace-launcher">
           <h2>{active.kind === "files" ? "Файлы проекта" : "Новая вкладка"}</h2><p>{active.kind === "files" ? "Файлы текущего чата. Выберите файл, чтобы открыть его код в отдельной вкладке." : "Откройте сборку, исходный файл или сравнение изменений рядом с чатом."}</p>
           {artifacts.length ? <><h3>Документы</h3>{artifacts.map(doc => <button className="workspace-choice" key={doc.id} onClick={() => open("artifact", doc.id)}><FileText size={20} /><span>{doc.title}<small>{doc.format.toUpperCase()} · Версия {doc.version}</small></span></button>)}</> : null}
@@ -165,7 +182,7 @@ export function WorkspacePanel({ sessionId, events, request, visible, onClose }:
           {!previews.length ? <p className="workspace-notice">Готовые сборки появятся здесь после создания preview.</p> : null}
           <h3>Файлы проекта</h3></> : null}<input aria-label="Найти файл проекта" placeholder="Найти файл…" value={filter} onChange={event => setFilter(event.target.value)} />
           {treeError ? <p role="alert">{treeError}</p> : null}
-          <ul className="workspace-files">{files.filter(path => path.toLowerCase().includes(filter.toLowerCase())).map(path => <li key={path}><button onClick={() => open("file", path)}><FileText size={16} /><span>{path}</span></button></li>)}</ul>
+          <ul className="workspace-files">{files.filter(path => path.toLowerCase().includes(filter.toLowerCase())).map(path => <li key={path}><button onClick={() => open(isOfficePath(path) ? "office" : "file", path)}><FileText size={16} /><span>{path}</span></button></li>)}</ul>
           {!files.length && !treeError ? <p className="workspace-notice">В этом чате пока нет файлов.</p> : null}
           {files.length >= 450 ? <p className="workspace-notice">Дерево ограничено 500 записями.</p> : null}
         </div>}

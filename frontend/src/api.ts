@@ -126,6 +126,10 @@ export const api = {
   projectFile: (id: string, path: string) => request<ProjectFile>(`/sessions/${id}/files?path=${encodeURIComponent(path)}`),
   projectChanges: (id: string, snapshot?: string) => request<ProjectChanges>(`/sessions/${id}/changes${snapshot ? `?snapshot_id=${encodeURIComponent(snapshot)}` : ""}`),
   projectSnapshots: (id: string) => request<ProjectSnapshot[]>(`/sessions/${id}/snapshots`),
+  officeInspect: (id: string, path: string) => request<OfficeDocument>(`/sessions/${id}/office/inspect?path=${encodeURIComponent(path)}`),
+  officeRawUrl: (id: string, path: string) => `${API_ROOT}/sessions/${id}/office/raw?path=${encodeURIComponent(path)}`,
+  officeSave: (id: string, payload: OfficeSavePayload) => request<{ status: string; path: string; document: OfficeDocument }>(`/sessions/${id}/office/save`, { method: "POST", body: JSON.stringify(payload) }),
+  officeConvert: (id: string, payload: OfficeConvertPayload) => request<{ status: string; source: string; output_path: string; target_format: string; document: OfficeDocument }>(`/sessions/${id}/office/convert`, { method: "POST", body: JSON.stringify(payload) }),
   listSkills: () => request<SkillSummary[]>("/skills"),
   listSkillTrash: () => request<SkillSummary[]>("/skills/trash"),
   getSkill: (id: string) => request<SkillDetail>(`/skills/${id}`),
@@ -172,6 +176,48 @@ export interface ProjectChanges {
   snapshot: ProjectSnapshot | null;
   files: Array<{ path: string; status: string; diff: string; additions: number; deletions: number; binary: boolean; truncated: boolean }>;
   truncated: boolean;
+}
+
+export interface OfficeDocument {
+  format: "docx" | "xlsx" | "pptx" | "pdf" | "md" | "html" | "csv";
+  file_name: string;
+  file_size: number;
+  total_words?: number;
+  paragraph_count?: number;
+  headings?: Array<{ index: number; level: number; text: string }>;
+  paragraphs?: Array<{ index: number; style: string; text: string; is_heading: boolean; level?: number | null }>;
+  tables?: Array<{ index: number; row_count: number; col_count: number; rows: string[][] }>;
+  sheet_names?: string[];
+  sheet_count?: number;
+  total_formulas?: number;
+  sheets?: Array<{ name: string; max_row: number; max_column: number; formula_count: number; rows: unknown[][]; headers: string[] }>;
+  sheets_by_name?: Record<string, { name: string; max_row: number; max_column: number; formula_count: number; rows: unknown[][]; headers: string[] }>;
+  slide_count?: number;
+  slides?: Array<{ index: number; title: string; paragraphs: string[]; bullets: string[]; shape_count: number; notes: string }>;
+  page_count?: number;
+  pages?: Array<{ page: number; text: string; word_count: number }>;
+  raw_text?: string;
+}
+
+export interface OfficeSavePayload {
+  path: string;
+  format?: string;
+  paragraph_updates?: Array<{ index?: number; search?: string; text: string }>;
+  append_paragraphs?: Array<{ text: string; style?: string; heading?: number; bullet?: boolean }>;
+  table_updates?: Array<{ table_index?: number; row?: number; col?: number; text?: string; cells?: Array<{ row: number; col: number; text: string }> }>;
+  cell_updates?: Array<{ sheet?: string; cell?: string; row?: number; col?: number; value: unknown }>;
+  append_rows?: unknown[][];
+  new_sheets?: string[];
+  slide_updates?: Array<{ index: number; title?: string; bullets?: string[]; notes?: string }>;
+  append_slides?: Array<{ title?: string; bullets?: string[]; notes?: string }>;
+  content_base64?: string;
+  text_content?: string;
+}
+
+export interface OfficeConvertPayload {
+  source_path: string;
+  target_format: string;
+  output_path?: string;
 }
 
 const EVENT_TYPES = [

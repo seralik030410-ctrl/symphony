@@ -1,17 +1,23 @@
 import { previewPath } from "../chat/preview";
 
-export type WorkspaceTab = { id: string; kind: "new" | "files" | "preview" | "file" | "changes" | "artifact"; title: string; path?: string };
+export type WorkspaceTab = { id: string; kind: "new" | "files" | "preview" | "file" | "changes" | "artifact" | "office"; title: string; path?: string };
 export type OpenWorkspace = { nonce: number; kind: WorkspaceTab["kind"]; path?: string };
 export type WorkspaceState = { tabs: WorkspaceTab[]; activeId: string };
 export const emptyWorkspace = (): WorkspaceState => ({ tabs: [{ id: "new", kind: "new", title: "Новая вкладка" }], activeId: "new" });
 
+export function isOfficePath(path: string | undefined): boolean {
+  if (!path) return false;
+  return /\.(docx|xlsx|xlsm|xltx|pptx|pdf)$/i.test(path);
+}
+
 export function openTab(state: WorkspaceState, request: OpenWorkspace): WorkspaceState {
-  const id = request.kind === "new" ? `new:${request.nonce}` : `${request.kind}:${request.path ?? ""}`;
+  const effectiveKind = request.kind === "file" && isOfficePath(request.path) ? "office" : request.kind;
+  const id = effectiveKind === "new" ? `new:${request.nonce}` : `${effectiveKind}:${request.path ?? ""}`;
   if (state.tabs.some(tab => tab.id === id)) return { ...state, activeId: id };
-  const title = request.kind === "new" ? "Новая вкладка" : request.kind === "files" ? "Файлы проекта" : request.kind === "artifact" ? "Документ" : request.kind === "changes" ? "Изменения" : request.kind === "preview" ? "Preview" : request.path?.split("/").at(-1) ?? "Файл";
-  const tab: WorkspaceTab = { id, kind: request.kind, title, path: request.path };
+  const title = effectiveKind === "new" ? "Новая вкладка" : effectiveKind === "files" ? "Файлы проекта" : effectiveKind === "artifact" ? "Документ" : effectiveKind === "changes" ? "Изменения" : effectiveKind === "preview" ? "Preview" : effectiveKind === "office" ? (request.path?.split("/").at(-1) ?? "Office") : request.path?.split("/").at(-1) ?? "Файл";
+  const tab: WorkspaceTab = { id, kind: effectiveKind, title, path: request.path };
   const active = state.tabs.find(item => item.id === state.activeId);
-  const tabs = active?.kind === "new" && request.kind !== "new"
+  const tabs = active?.kind === "new" && effectiveKind !== "new"
     ? state.tabs.map(item => item.id === active.id ? tab : item) : [...state.tabs, tab];
   return { tabs: tabs.slice(-20), activeId: id };
 }
@@ -29,6 +35,7 @@ export function restoreWorkspace(raw: string | null, sessionId: string, origin: 
     const tabs = value.tabs.filter(tab => typeof tab.id === "string" && typeof tab.title === "string" && (
       tab.kind === "new" || tab.kind === "files" || tab.kind === "changes" ||
       (tab.kind === "artifact" && typeof tab.path === "string" && /^[a-f0-9]{32}$/.test(tab.path)) ||
+      (tab.kind === "office" && typeof tab.path === "string" && !/[:\\]|(^|\/)\.\.(\/|$)|^\//.test(tab.path)) ||
       (tab.kind === "file" && typeof tab.path === "string" && !/[:\\]|(^|\/)\.\.(\/|$)|^\//.test(tab.path)) ||
       (tab.kind === "preview" && typeof tab.path === "string" && previewPath(tab.path, sessionId, origin))
     )).slice(-20);
