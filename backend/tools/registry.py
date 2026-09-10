@@ -13,6 +13,10 @@ from backend.sandbox.runtime import DockerSandboxRuntime
 from backend.tools.snapshots import SnapshotStore, ListSnapshotsTool, RestoreSnapshotTool
 from backend.skills.store import SkillStore
 from backend.tools.skills import ReadSkillResourceTool, RunSkillScriptTool
+from backend.tools.office import (
+    OfficeInspectTool, OfficeCreateTool, OfficePatchTool,
+    OfficeAnalyzeTool, OfficeChartTool, OfficeConvertTool,
+)
 
 
 class ToolRegistry:
@@ -57,8 +61,19 @@ class ToolRegistry:
         *, default_timeout: float = 10.0,
     ) -> "ToolRegistry":
         registry = cls.stage_three(workspaces, sandbox, default_timeout=default_timeout)
-        return cls([*registry.tools.values(), ReadSkillResourceTool(skills), RunSkillScriptTool(skills, sandbox)],
-                   default_timeout=default_timeout, snapshots=registry.snapshots)
+        office_tools: list[Tool] = [
+            OfficeInspectTool(workspaces),
+            OfficeCreateTool(workspaces),
+            OfficePatchTool(workspaces),
+            OfficeAnalyzeTool(workspaces),
+            OfficeChartTool(workspaces),
+            OfficeConvertTool(workspaces),
+        ]
+        return cls(
+            [*registry.tools.values(), ReadSkillResourceTool(skills), RunSkillScriptTool(skills, sandbox),
+             *office_tools],
+            default_timeout=default_timeout, snapshots=registry.snapshots,
+        )
 
     def definitions(self) -> list[dict[str, Any]]:
         return [tool.definition() for tool in self.tools.values()]
