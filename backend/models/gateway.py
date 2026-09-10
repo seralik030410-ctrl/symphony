@@ -10,6 +10,10 @@ from backend.models.base import ChatRequest, ModelAdapter, ModelStreamEvent, Mod
 from backend.storage.database import utc_now
 from backend.models.ollama import OllamaAdapter
 from backend.models.openai_compatible import OpenAICompatibleAdapter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.providers.registry import ProviderRegistry
 
 
 class ModelGateway:
@@ -18,10 +22,12 @@ class ModelGateway:
     def __init__(self, adapters: dict[str, ModelAdapter]) -> None:
         self.adapters = adapters
         self.database = None
+        self.registry: ProviderRegistry | None = None
+        self.managed_profiles = False
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "ModelGateway":
-        return cls(
+        gateway = cls(
             {
                 "ollama": OllamaAdapter(
                     settings.ollama_base_url,
@@ -39,8 +45,14 @@ class ModelGateway:
                 ),
             }
         )
+        gateway.managed_profiles = True
+        return gateway
 
     def get_adapter(self, provider: str) -> ModelAdapter:
+        if not self.managed_profiles and provider in {"builtin-ollama", "builtin-openai"}:
+            provider = "ollama" if provider == "builtin-ollama" else "openai"
+        if self.registry and provider not in self.adapters:
+            return self.registry.adapter(provider)
         try:
             return self.adapters[provider]
         except KeyError as exc:
@@ -48,8 +60,14 @@ class ModelGateway:
 
     async def stream_chat(self, provider: str, request: ChatRequest) -> AsyncIterator[ModelStreamEvent]:
         adapter = self.get_adapter(provider)
-        async for delta in adapter.stream_chat(request):
-            yield delta
+        try:
+            async for delta in adapter.stream_chat(request):
+                yield delta
+        except ProviderError as exc:
+            message = self.registry.secrets.redact_text(str(exc)) if self.registry else str(exc)
+            # Do not retain a transport exception that may contain request
+            # headers or a secret-bearing endpoint in a later traceback.
+            raise ProviderError(message, code=exc.code) from None
 
     async def cancel(self, provider: str, request_id: str) -> None:
         await self.get_adapter(provider).cancel(request_id)
@@ -62,11 +80,20 @@ class ModelGateway:
         caps = asdict(await adapter.resolve_capabilities(model))
         caps["max_context"] = await adapter.context_window(model)
         if self.database:
+            capability_key = ({"ollama": "builtin-ollama", "openai": "builtin-openai"}.get(provider, provider)
+                              if self.registry else provider)
             with self.database.read() as connection:
                 row = connection.execute("SELECT overrides_json FROM model_capability_overrides WHERE provider=? AND model=?", (provider, model)).fetchone()
+                profile_row = connection.execute("SELECT overrides_json FROM model_capability_overrides WHERE provider=? AND model=?", (capability_key, model)).fetchone()
             if row:
                 caps.update(json.loads(row[0]))
-        return ModelCapabilities(**caps)
+            if profile_row:
+                caps.update(json.loads(profile_row[0]))
+        resolved = ModelCapabilities(**caps)
+        if self.registry:
+            profile_id = provider if provider not in self.adapters else ("builtin-ollama" if provider == "ollama" else "builtin-openai")
+            resolved = self.registry.capabilities(profile_id, model, resolved)
+        return resolved
 
     def set_capabilities(self, provider: str, model: str, overrides: dict):
         self.get_adapter(provider)
@@ -103,4 +130,31 @@ class ModelGateway:
                 "capabilities": asdict(adapter.get_capabilities(adapter.default_model)),
             }
 
-        return list(await asyncio.gather(*(inspect(adapter) for adapter in self.adapters.values())))
+        legacy = list(await asyncio.gather(*(inspect(adapter) for adapter in self.adapters.values())))
+        for item in legacy:
+            item["profile_id"] = "builtin-ollama" if item["provider"] == "ollama" else "builtin-openai"
+        if not self.registry:
+            return legacy
+        if not self.managed_profiles:
+            return legacy
+
+        results: list[dict[str, object]] = []
+        for profile in self.registry.list():
+            key = profile["id"]
+            try:
+                adapter = self.registry.adapter(key)
+                item = await inspect(adapter)
+                detected = ModelCapabilities(**item["capabilities"])
+                item["capabilities"] = asdict(self.registry.capabilities(key, profile["default_model"], detected))
+            except ProviderError as exc:
+                item = {
+                    "provider": "ollama" if profile["provider_type"] == "ollama" else "openai",
+                    "title": profile["title"], "base_url": profile["base_url"],
+                    "default_model": profile["default_model"], "models": [profile["default_model"]],
+                    "available": False, "health_message": str(exc),
+                    "capabilities": asdict(self.registry.capabilities(key, profile["default_model"])),
+                }
+            item["profile_id"] = key
+            item["enabled"] = profile["enabled"]
+            results.append(item)
+        return results

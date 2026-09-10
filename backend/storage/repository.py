@@ -5,6 +5,8 @@ import uuid
 from typing import Any
 
 from backend.storage.database import Database, event_row_to_dict, row_to_dict, utc_now
+from backend.vision.contracts import FrameProvenance
+from backend.vision.limits import estimate_image_tokens
 
 
 ACTIVE_TURN_STATUSES = ("queued", "preparing", "model_running")
@@ -32,6 +34,7 @@ class Repository:
         system_prompt: str,
         context_window: int,
         max_output: int,
+        provider_profile_id: str | None = None,
     ) -> dict[str, Any]:
         session_id = uuid.uuid4().hex
         now = utc_now()
@@ -40,8 +43,8 @@ class Repository:
                 """
                 INSERT INTO sessions(
                     id, title, provider, model, system_prompt,
-                    context_window, max_output, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    context_window, max_output, provider_profile_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -51,6 +54,7 @@ class Repository:
                     system_prompt,
                     context_window,
                     max_output,
+                    provider_profile_id,
                     now,
                     now,
                 ),
@@ -112,6 +116,7 @@ class Repository:
             "title",
             "provider",
             "model",
+            "provider_profile_id",
             "system_prompt",
             "context_window",
             "max_output",
@@ -214,11 +219,21 @@ class Repository:
                 self._purge_session_rows(connection, session_id)
         return session_ids
 
-    def create_turn(self, session_id: str, content: str, attachment_ids: list[str] | None = None, *, image_mode: str = "vision", retry_from_turn: str | None = None) -> dict[str, Any]:
+    def create_turn(
+        self,
+        session_id: str,
+        content: str,
+        attachment_ids: list[str] | None = None,
+        *,
+        image_mode: str = "vision",
+        attachment_uses: list[dict[str, Any]] | None = None,
+        retry_from_turn: str | None = None,
+    ) -> dict[str, Any]:
         session = self.get_session(session_id, include_history=False)
         attachment_ids = attachment_ids or []
         if len(attachment_ids) > 8 or len(set(attachment_ids)) != len(attachment_ids):
             raise ConflictError("Attach at most eight distinct files")
+        use_by_attachment = self._attachment_use_request(attachment_ids, attachment_uses, image_mode)
         turn_id = uuid.uuid4().hex
         user_message_id = uuid.uuid4().hex
         assistant_message_id = uuid.uuid4().hex
@@ -259,8 +274,8 @@ class Repository:
                 """
                 INSERT INTO turns(
                     id, session_id, user_message_id, assistant_message_id,
-                    status, provider, model, request_id, created_at
-                ) VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+                    status, provider, model, provider_profile_id, request_id, created_at
+                ) VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)
                 """,
                 (
                     turn_id,
@@ -269,24 +284,61 @@ class Repository:
                     assistant_message_id,
                     session["provider"],
                     session["model"],
+                    session.get("provider_profile_id"),
                     request_id,
                     now,
                 ),
             )
-            for attachment_id in attachment_ids:
-                if retry_from_turn:
-                    source = connection.execute("SELECT u.image_mode FROM attachment_uses u JOIN attachments a ON a.id=u.attachment_id WHERE u.turn_id=? AND a.id=? AND a.session_id=?", (retry_from_turn, attachment_id, session_id)).fetchone()
-                    if source is None:
-                        raise ConflictError("Retry attachment is not part of the original turn")
-                    connection.execute("INSERT INTO attachment_uses(attachment_id,turn_id,message_id,image_mode) VALUES(?,?,?,?)", (attachment_id, turn_id, user_message_id, source["image_mode"]))
-                    continue
-                cursor = connection.execute(
-                    "UPDATE attachments SET turn_id=?, message_id=? WHERE id=? AND session_id=? AND turn_id IS NULL",
-                    (turn_id, user_message_id, attachment_id, session_id),
-                )
-                if cursor.rowcount != 1:
-                    raise ConflictError("An attachment is missing, belongs to another chat, or was already sent")
-                connection.execute("INSERT INTO attachment_uses(attachment_id,turn_id,message_id,image_mode) VALUES(?,?,?,?)", (attachment_id, turn_id, user_message_id, image_mode))
+            if retry_from_turn:
+                source_rows = connection.execute(
+                    "SELECT u.*,a.id AS attachment_id FROM attachment_uses u JOIN attachments a ON a.id=u.attachment_id "
+                    "WHERE u.turn_id=? AND a.session_id=? ORDER BY u.ordinal,u.attachment_id",
+                    (retry_from_turn, session_id),
+                ).fetchall()
+                source_ids = [row["attachment_id"] for row in source_rows]
+                if set(source_ids) != set(attachment_ids) or len(source_ids) != len(attachment_ids):
+                    raise ConflictError("Retry attachments must match the original immutable snapshot")
+                for source in source_rows:
+                    connection.execute(
+                        "INSERT INTO attachment_uses(attachment_id,turn_id,message_id,image_mode,ordinal,provenance_json,snapshot_json,estimated_tokens) "
+                        "VALUES(?,?,?,?,?,?,?,?)",
+                        (
+                            source["attachment_id"], turn_id, user_message_id, source["image_mode"],
+                            source["ordinal"], source["provenance_json"], source["snapshot_json"],
+                            source["estimated_tokens"],
+                        ),
+                    )
+            else:
+                for ordinal, attachment_id in enumerate(attachment_ids):
+                    requested = use_by_attachment[attachment_id]
+                    attachment = connection.execute(
+                        "SELECT id,filename,mime_type,size,sha256,width,height,path FROM attachments "
+                        "WHERE id=? AND session_id=? AND turn_id IS NULL",
+                        (attachment_id, session_id),
+                    ).fetchone()
+                    if attachment is None:
+                        raise ConflictError("An attachment is missing, belongs to another chat, or was already sent")
+                    snapshot = {key: attachment[key] for key in ("id", "filename", "mime_type", "size", "sha256", "width", "height", "path")}
+                    estimated_tokens = (
+                        estimate_image_tokens(attachment["width"], attachment["height"])
+                        if str(attachment["mime_type"]).startswith("image/") and requested["image_mode"] == "vision"
+                        else 0
+                    )
+                    cursor = connection.execute(
+                        "UPDATE attachments SET turn_id=?, message_id=? WHERE id=? AND session_id=? AND turn_id IS NULL",
+                        (turn_id, user_message_id, attachment_id, session_id),
+                    )
+                    if cursor.rowcount != 1:
+                        raise ConflictError("An attachment is missing, belongs to another chat, or was already sent")
+                    connection.execute(
+                        "INSERT INTO attachment_uses(attachment_id,turn_id,message_id,image_mode,ordinal,provenance_json,snapshot_json,estimated_tokens) "
+                        "VALUES(?,?,?,?,?,?,?,?)",
+                        (
+                            attachment_id, turn_id, user_message_id, requested["image_mode"], ordinal,
+                            json.dumps(requested["provenance"], ensure_ascii=False, separators=(",", ":")),
+                            json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")), estimated_tokens,
+                        ),
+                    )
             message_count = connection.execute(
                 "SELECT COUNT(*) FROM messages WHERE session_id = ? AND role = 'user'",
                 (session_id,),
@@ -323,10 +375,10 @@ class Repository:
         turn = self.get_turn(turn_id)
         with self.database.read() as connection:
             rows = connection.execute(
-                "SELECT a.*,u.image_mode FROM attachments a JOIN attachment_uses u ON a.id=u.attachment_id WHERE u.turn_id=? AND a.session_id=? ORDER BY a.created_at,a.id",
+                "SELECT a.*,u.image_mode,u.ordinal,u.provenance_json,u.snapshot_json,u.estimated_tokens FROM attachments a JOIN attachment_uses u ON a.id=u.attachment_id WHERE u.turn_id=? AND a.session_id=? ORDER BY u.ordinal,u.attachment_id",
                 (turn_id, turn["session_id"]),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [self._attachment_from_use_row(row) for row in rows]
 
     def list_context_messages(self, session_id: str) -> list[dict[str, Any]]:
         self.get_session(session_id, include_history=False)
@@ -714,6 +766,54 @@ class Repository:
         return value
 
     @staticmethod
+    def _attachment_use_request(
+        attachment_ids: list[str], attachment_uses: list[dict[str, Any]] | None, image_mode: str,
+    ) -> dict[str, dict[str, Any]]:
+        """Normalise client selection once, before it becomes immutable history."""
+        if image_mode not in {"vision", "ocr"}:
+            raise ConflictError("Unsupported image mode")
+        if not attachment_uses:
+            return {
+                attachment_id: {"image_mode": image_mode, "provenance": FrameProvenance().as_dict()}
+                for attachment_id in attachment_ids
+            }
+        if len(attachment_uses) != len(attachment_ids):
+            raise ConflictError("Every attached file requires exactly one frame selection")
+        values: dict[str, dict[str, Any]] = {}
+        for use in attachment_uses:
+            if hasattr(use, "model_dump"):
+                use = use.model_dump()
+            if not isinstance(use, dict):
+                raise ConflictError("Invalid frame selection")
+            attachment_id = use.get("attachment_id")
+            if not isinstance(attachment_id, str) or attachment_id not in attachment_ids or attachment_id in values:
+                raise ConflictError("Frame selection does not match the attached files")
+            selected_mode = use.get("image_mode") or image_mode
+            if selected_mode not in {"vision", "ocr"}:
+                raise ConflictError("Unsupported image mode")
+            provenance = use.get("provenance")
+            values[attachment_id] = {
+                "image_mode": selected_mode,
+                "provenance": FrameProvenance.from_mapping(provenance if isinstance(provenance, dict) else None).as_dict(),
+            }
+        return values
+
+    @staticmethod
+    def _attachment_from_use_row(row: Any) -> dict[str, Any]:
+        value = dict(row)
+        provenance = value.pop("provenance_json", "{}")
+        snapshot = value.pop("snapshot_json", "{}")
+        try:
+            value["provenance"] = json.loads(provenance)
+        except (TypeError, json.JSONDecodeError):
+            value["provenance"] = FrameProvenance().as_dict()
+        try:
+            value["snapshot"] = json.loads(snapshot)
+        except (TypeError, json.JSONDecodeError):
+            value["snapshot"] = {}
+        return value
+
+    @staticmethod
     def _turn_from_row(row: Any, connection: Any) -> dict[str, Any]:
         value = dict(row)
         value["cancel_requested"] = bool(value["cancel_requested"])
@@ -727,9 +827,9 @@ class Repository:
     def _message_from_row(row: Any, connection: Any) -> dict[str, Any]:
         value = dict(row)
         value["attachments"] = [
-            dict(item)
+            Repository._attachment_from_use_row(item)
             for item in connection.execute(
-                "SELECT a.id,a.filename,a.mime_type,a.size,a.width,a.height,a.path,u.image_mode FROM attachments a JOIN attachment_uses u ON u.attachment_id=a.id WHERE u.message_id=? ORDER BY a.created_at,a.id",
+                "SELECT a.id,a.filename,a.mime_type,a.size,a.width,a.height,a.path,u.image_mode,u.ordinal,u.provenance_json,u.snapshot_json,u.estimated_tokens FROM attachments a JOIN attachment_uses u ON u.attachment_id=a.id WHERE u.message_id=? ORDER BY u.ordinal,u.attachment_id",
                 (value["id"],),
             )
         ]

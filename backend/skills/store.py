@@ -165,6 +165,59 @@ def _normalize_imported_skill(root: Path, meta: dict[str, Any]) -> dict[str, Any
     return {"normalized": True, "reference": relative}
 
 
+def _safe_subdirectory(value: str) -> Path | None:
+    normalized = unquote(value).strip().strip("/").replace("\\", "/")
+    if not normalized:
+        return None
+    relative = Path(normalized)
+    if relative.is_absolute() or ".." in relative.parts or ":" in normalized:
+        raise ToolError("invalid_source", "Skill subdirectory must stay inside the package")
+    return relative
+
+
+def _select_skill_root(container: Path, subdirectory: Path | None, *, source_label: str) -> Path:
+    selected = container.joinpath(subdirectory) if subdirectory else container
+    if not selected.is_dir() or is_link(selected):
+        raise ToolError("invalid_source", f"{source_label} skill subdirectory does not exist")
+    if (selected / "SKILL.md").is_file():
+        return selected
+    roots = sorted({path.parent for path in selected.rglob("SKILL.md")})
+    if len(roots) == 1:
+        return roots[0]
+    # A common ZIP layout is wrapper/skill/SKILL.md with examples or
+    # references that also contain their own SKILL.md. The shallowest skill
+    # is the package root when it contains every other candidate.
+    containers = [root for root in roots if all(other == root or root in other.parents for other in roots)]
+    if len(containers) == 1:
+        return containers[0]
+    if not roots:
+        raise ToolError("invalid_source", f"{source_label} does not contain SKILL.md")
+    choices = ", ".join(path.relative_to(container).as_posix() for path in roots[:8])
+    raise ToolError(
+        "ambiguous_skill",
+        f"{source_label} contains several skills ({choices}). Specify the skill subdirectory.",
+    )
+
+
+def _parse_git_source(url: str) -> tuple[str, str | None, Path | None]:
+    parsed = urlsplit(url.strip())
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query
+            or len(url) > 1_000 or any(character.isspace() for character in url)):
+        raise ToolError("invalid_source", "Git source must be an HTTPS URL without credentials")
+    branch: str | None = None
+    fragment = unquote(parsed.fragment)
+    path = parsed.path.rstrip("/")
+    # Accept the URL users copy from GitHub's address bar.
+    if parsed.hostname.lower() in {"github.com", "www.github.com"} and "/tree/" in path:
+        repository_path, tree_path = path.split("/tree/", 1)
+        parts = tree_path.split("/", 1)
+        branch = parts[0]
+        fragment = parts[1] if len(parts) == 2 else ""
+        path = repository_path + ".git"
+    clone_url = urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, ""))
+    return clone_url, branch, _safe_subdirectory(fragment)
+
+
 class SkillStore:
     def __init__(self, database: Database, root: Path, bundled_root: Path | None = None) -> None:
         self.database = database
@@ -229,7 +282,7 @@ class SkillStore:
         _validate_tree(source, allow_import_size=True)
         return self._insert(source, source_type=source_type, source_ref=str(source), mode=mode)
 
-    def install_zip(self, encoded: str, *, filename: str = "skill.zip", mode: str = "explicit") -> dict[str, Any]:
+    def install_zip(self, encoded: str, *, filename: str = "skill.zip", subdirectory: str = "", mode: str = "explicit") -> dict[str, Any]:
         try:
             raw = base64.b64decode(encoded, validate=True)
         except ValueError as exc:
@@ -257,24 +310,18 @@ class SkillStore:
                         raise ToolError("invalid_archive", "ZIP contains a path unsupported on this system") from exc
             except zipfile.BadZipFile as exc:
                 raise ToolError("invalid_archive", "The selected file is not a valid ZIP") from exc
-            roots = [path.parent for path in unpacked.rglob("SKILL.md")]
-            if len(roots) != 1:
-                raise ToolError("invalid_archive", "ZIP must contain exactly one SKILL.md")
-            return self._insert(roots[0], source_type="zip", source_ref=filename[:240], mode=mode)
+            root = _select_skill_root(unpacked, _safe_subdirectory(subdirectory), source_label="ZIP archive")
+            source_ref = filename[:240] + (f"#{subdirectory}" if subdirectory else "")
+            return self._insert(root, source_type="zip", source_ref=source_ref, mode=mode)
 
     def install_git(self, url: str, *, mode: str = "explicit") -> dict[str, Any]:
-        parsed = urlsplit(url)
-        if not re.fullmatch(r"https://[^\s]+", url) or len(url) > 1_000 or not parsed.hostname or parsed.username or parsed.password:
-            raise ToolError("invalid_source", "Git source must be an HTTPS URL")
-        subdirectory = unquote(parsed.fragment).strip().replace("\\", "/")
-        relative_subdirectory = Path(subdirectory) if subdirectory else None
-        if relative_subdirectory and (relative_subdirectory.is_absolute() or ".." in relative_subdirectory.parts or ":" in subdirectory):
-            raise ToolError("invalid_source", "Git skill subdirectory must stay inside the repository")
-        clone_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
+        clone_url, branch, relative_subdirectory = _parse_git_source(url)
         with tempfile.TemporaryDirectory(prefix="skill-git-", dir=self.root) as temporary:
             target = Path(temporary) / "repository"
             flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
             clone_arguments = ["git", "clone", "--depth", "1", "--no-recurse-submodules"]
+            if branch:
+                clone_arguments.extend(["--branch", branch])
             if relative_subdirectory:
                 clone_arguments.extend(["--filter=blob:none", "--sparse"])
             clone_arguments.extend(["--", clone_url, str(target)])
@@ -287,7 +334,7 @@ class SkillStore:
             if relative_subdirectory:
                 try:
                     result = subprocess.run(
-                        ["git", "-C", str(target), "sparse-checkout", "set", "--no-cone", subdirectory],
+                        ["git", "-C", str(target), "sparse-checkout", "set", "--no-cone", relative_subdirectory.as_posix()],
                         capture_output=True, timeout=30, creationflags=flags,
                     )
                 except (OSError, subprocess.TimeoutExpired) as exc:
@@ -297,15 +344,8 @@ class SkillStore:
             git_dir = target / ".git"
             if git_dir.exists():
                 shutil.rmtree(git_dir, onerror=_remove_readonly)
-            selected = target.joinpath(relative_subdirectory) if relative_subdirectory else target
-            if relative_subdirectory and (not selected.is_dir() or is_link(selected)):
-                raise ToolError("invalid_source", "Git skill subdirectory does not exist")
-            roots = [path.parent for path in selected.rglob("SKILL.md")]
-            if relative_subdirectory and (selected / "SKILL.md").is_file():
-                roots = [selected]
-            if len(roots) != 1:
-                raise ToolError("invalid_source", "Git source must resolve to exactly one skill folder")
-            return self._insert(roots[0], source_type="git", source_ref=url, mode=mode)
+            root = _select_skill_root(target, relative_subdirectory, source_label="Git repository")
+            return self._insert(root, source_type="git", source_ref=url, mode=mode)
 
     def list(self, *, deleted: bool = False) -> list[dict[str, Any]]:
         with self.database.read() as connection:

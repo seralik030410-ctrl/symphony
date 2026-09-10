@@ -1,6 +1,6 @@
 [package]
 name = "symphony-desktop"
-version = "0.7.0"
+version = "0.12.0"
 description = "Local-first desktop shell for FinCtrl"
 authors = ["FinCtrl"]
 edition = "2021"

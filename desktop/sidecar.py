@@ -20,10 +20,17 @@ def read_bootstrap(stream) -> dict:
         value = json.loads(line)
         if not isinstance(value, dict) or value.get("protocol") != PROTOCOL:
             raise ValueError
-        if set(value) != {"protocol", "openai_api_key"}:
+        if set(value) not in ({"protocol", "openai_api_key"}, {"protocol", "openai_api_key", "provider_secrets"}):
             raise ValueError
         key = value["openai_api_key"]
         if not isinstance(key, str) or len(key) > 4096:
+            raise ValueError
+        secrets = value.get("provider_secrets", {})
+        if not isinstance(secrets, dict) or len(secrets) > 100 or any(
+            not isinstance(reference, str) or len(reference) > 64 or
+            not isinstance(secret, str) or len(secret) > 4096
+            for reference, secret in secrets.items()
+        ):
             raise ValueError
         return value
     except (ValueError, TypeError, UnicodeError):
@@ -57,6 +64,7 @@ def main() -> None:
     settings = Settings.from_env()
     settings.host = "127.0.0.1"
     settings.openai_api_key = bootstrap.pop("openai_api_key")
+    settings.provider_secrets = bootstrap.pop("provider_secrets", {})
     # Bind before opening/migrating a database. A second instance must neither
     # navigate to a foreign server nor interrupt the first instance's turns.
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -8,6 +8,11 @@ import type {
   SkillDetail, SkillMatch, SkillMode, SkillSummary,
   Attachment, IndexedSource, MemorySnapshot,
   ResearchSettings, ResearchSource, DiagnosticReport,
+  ProviderProfile, ProviderHealth, ProviderCapability,
+  MediaAsset, MediaJob, MediaJobEvent,
+  VoiceSession, VoiceSettings, AttachmentUse, VisionModelLimits, VisionMode,
+  AgentTask, AgentSettings, AgentCommand, AgentCompletionReceipt, AgentHeartbeatWatch, AgentHeartbeatEvent,
+  HistorySearchResult, ResourceSettings, ResourceDiagnostics,
 } from "./types";
 
 const API_ROOT = "/api";
@@ -39,6 +44,45 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  agentSettings: () => request<AgentSettings>("/agents/settings"),
+  updateAgentSettings: (value: Pick<AgentSettings, "enabled" | "profile" | "overrides" | "lazy_tools_enabled" | "role_routes">) => request<AgentSettings>("/agents/settings", { method: "PUT", body: JSON.stringify(value) }),
+  agentTaskTree: (turnId: string) => request<AgentTask[]>(`/agents/turns/${turnId}/tree`),
+  cancelAgentTask: (taskId: string) => request<{ cancelled_task_ids: string[] }>(`/agents/tasks/${taskId}/cancel`, { method: "POST" }),
+  commandAgentTask: (taskId: string, value: { type: "steer"; message: string } | { type: "stop"; subtree: boolean }) =>
+    request<AgentCommand>(`/agents/tasks/${taskId}/commands`, { method: "POST", body: JSON.stringify(value) }),
+  agentTaskCommands: (taskId: string, after = 0) => request<AgentCommand[]>(`/agents/tasks/${taskId}/commands?after=${after}`),
+  agentBackground: (sessionId: string) => request<{ tasks: AgentTask[]; receipts: AgentCompletionReceipt[]; watches: AgentHeartbeatWatch[]; heartbeat_events: AgentHeartbeatEvent[] }>(`/agents/sessions/${sessionId}/background`),
+  acknowledgeAgentReceipt: (receiptId: string) => request<AgentCompletionReceipt>(`/agents/receipts/${receiptId}/acknowledge`, { method: "POST" }),
+  acknowledgeAgentHeartbeatEvent: (eventId: string) => request<AgentHeartbeatEvent>(`/agents/heartbeat-events/${eventId}/acknowledge`, { method: "POST" }),
+  resourceSettings: () => request<ResourceSettings>("/resources/settings"),
+  updateResourceSettings: (profile: ResourceSettings["profile"], custom_limits: Record<string, unknown> = {}) => request<ResourceSettings>("/resources/settings", { method: "PUT", body: JSON.stringify({ profile, custom_limits }) }),
+  resourceDiagnostics: () => request<ResourceDiagnostics>("/resources/diagnostics"),
+  voiceSettings: (id: string) => request<VoiceSettings>(`/voice/sessions/${id}/settings`),
+  updateVoiceSettings: (id: string, value: Partial<Omit<VoiceSettings, "session_id" | "updated_at">>) => request<VoiceSettings>(`/voice/sessions/${id}/settings`, { method: "PUT", body: JSON.stringify(value) }),
+  latestVoiceSession: (id: string) => request<VoiceSession | null>(`/voice/sessions/${id}/latest`),
+  listMediaAssets: (id: string, deleted = false) => request<MediaAsset[]>(`/sessions/${id}/media/assets?deleted=${deleted}`),
+  uploadMediaAsset: (id: string, value: { filename: string; mime_type: string; content_base64: string }) =>
+    request<MediaAsset>(`/sessions/${id}/media/assets`, { method: "POST", body: JSON.stringify(value) }),
+  trashMediaAsset: (id: string, asset: string) => request<{ id: string; recoverable: boolean }>(`/sessions/${id}/media/assets/${asset}`, { method: "DELETE" }),
+  restoreMediaAsset: (id: string, asset: string) => request<MediaAsset>(`/sessions/${id}/media/assets/${asset}/restore`, { method: "POST" }),
+  purgeMediaAsset: (id: string, asset: string) => request<{ id: string; recoverable: boolean }>(`/sessions/${id}/media/assets/${asset}/permanent`, { method: "DELETE" }),
+  listMediaJobs: (id: string) => request<MediaJob[]>(`/sessions/${id}/media/jobs`),
+  createMediaJob: (id: string, asset: string) => request<MediaJob>(`/sessions/${id}/media/jobs`, { method: "POST", body: JSON.stringify({ kind: "media.preview", input: { asset_id: asset } }) }),
+  cancelMediaJob: (id: string, job: string) => request<MediaJob>(`/sessions/${id}/media/jobs/${job}/cancel`, { method: "POST" }),
+  retryMediaJob: (id: string, job: string) => request<MediaJob>(`/sessions/${id}/media/jobs/${job}/retry`, { method: "POST" }),
+  mediaJobEvents: (id: string, job: string, after = 0) => request<MediaJobEvent[]>(`/sessions/${id}/media/jobs/${job}/events?after=${after}`),
+  listProviderProfiles: () => request<ProviderProfile[]>("/providers"),
+  createProviderProfile: (value: {
+    provider_type: ProviderProfile["provider_type"]; title: string; base_url: string; default_model: string;
+    enabled: boolean; is_local: boolean; secret?: string; secret_storage?: "memory" | "desktop"; secret_env_var?: string;
+    capabilities?: Partial<Record<ProviderCapability, boolean>>;
+  }) => request<ProviderProfile>("/providers", { method: "POST", body: JSON.stringify(value) }),
+  updateProviderProfile: (id: string, value: Partial<Pick<ProviderProfile, "title" | "base_url" | "default_model" | "enabled" | "is_local">> & {
+    secret?: string; secret_storage?: "memory" | "desktop"; secret_env_var?: string; clear_secret?: boolean; capabilities?: Partial<Record<ProviderCapability, boolean>>;
+  }) => request<ProviderProfile>(`/providers/${id}`, { method: "PATCH", body: JSON.stringify(value) }),
+  deleteProviderProfile: (id: string) => request<void>(`/providers/${id}`, { method: "DELETE" }),
+  checkProviderProfile: (id: string) => request<ProviderHealth>(`/providers/${id}/health`, { method: "POST" }),
+  providerCapabilities: (id: string, model: string) => request<{ profile_id: string; model: string; capabilities: Record<ProviderCapability, boolean> }>(`/providers/${id}/capabilities?model=${encodeURIComponent(model)}`),
   researchSettings: (id: string) => request<ResearchSettings>(`/sessions/${id}/research`),
   updateResearchSettings: (id: string, value: Pick<ResearchSettings, "enabled" | "allowed_domains">) => request<ResearchSettings>(`/sessions/${id}/research`, { method: "PUT", body: JSON.stringify(value) }),
   researchSources: (id: string, turn?: string) => request<ResearchSource[]>(`/sessions/${id}/research/sources${turn ? `?turn_id=${encodeURIComponent(turn)}` : ""}`),
@@ -57,7 +101,7 @@ export const api = {
   indexSource: (id: string, path: string) => request<IndexedSource>(`/sessions/${id}/sources/index`, { method: "POST", body: JSON.stringify({ path }) }),
   memoryVersions: (id: string) => request<MemorySnapshot[]>(`/sessions/${id}/memory/versions`),
   modelCapabilities: (id: string) => request<ModelProfile["capabilities"]>(`/sessions/${id}/model-capabilities`),
-  updateCapabilities: (id: string, value: { vision?: boolean; max_context?: number }) => request<ModelProfile["capabilities"]>(`/sessions/${id}/model-capabilities`, { method: "PUT", body: JSON.stringify(value) }),
+  updateCapabilities: (id: string, value: Partial<Pick<ModelProfile["capabilities"], "vision" | "max_context" | keyof VisionModelLimits>>) => request<ModelProfile["capabilities"]>(`/sessions/${id}/model-capabilities`, { method: "PUT", body: JSON.stringify(value) }),
   getMemory: (id: string) => request<MemorySnapshot>(`/sessions/${id}/memory`),
   getModelLimits: (id: string) => request<{ max_context: number; provider: string; model: string }>(`/sessions/${id}/model-limits`).catch(error => {
     if (error instanceof ApiError && error.status === 404) throw new Error("На этом порту работает предыдущая версия сервера. Перезапустите FinCtrl, затем повторите проверку.");
@@ -67,6 +111,7 @@ export const api = {
   createMemorySnapshot: (id: string) => request<MemorySnapshot>(`/sessions/${id}/memory/snapshot`, { method: "POST" }),
   clearMemory: (id: string) => request<void>(`/sessions/${id}/memory`, { method: "DELETE" }),
   listSessions: () => request<SessionSummary[]>("/sessions"),
+  searchHistory: (query: string, limit = 20) => request<{ query: string; results: HistorySearchResult[] }>(`/search/history?q=${encodeURIComponent(query)}&limit=${limit}`),
   createSession: () =>
     request<Session>("/sessions", {
       method: "POST",
@@ -93,16 +138,16 @@ export const api = {
   restoreSkill: (id: string) => request<SkillDetail>(`/skills/${id}/restore`, { method: "POST" }),
   updateSession: (
     id: string,
-    changes: Partial<Pick<Session, "provider" | "model" | "title" | "policy_profile" | "context_window" | "max_output">>,
+    changes: Partial<Pick<Session, "provider" | "provider_profile_id" | "model" | "title" | "policy_profile" | "context_window" | "max_output">>,
   ) =>
     request<Session>(`/sessions/${id}`, {
       method: "PATCH",
       body: JSON.stringify(changes),
     }),
-  createTurn: (sessionId: string, content: string, attachment_ids: string[] = [], image_mode: "vision" | "ocr" = "vision") =>
+  createTurn: (sessionId: string, content: string, attachment_ids: string[] = [], image_mode: VisionMode = "vision", attachment_uses: AttachmentUse[] = []) =>
     request<TurnCreated>(`/sessions/${sessionId}/turns`, {
       method: "POST",
-      body: JSON.stringify({ content, attachment_ids, image_mode }),
+      body: JSON.stringify({ content, attachment_ids, image_mode: image_mode === "auto" ? "vision" : image_mode, attachment_uses }),
     }),
   cancelTurn: (turnId: string) =>
     request<Turn>(`/turns/${turnId}/cancel`, { method: "POST" }),
@@ -138,6 +183,7 @@ const EVENT_TYPES = [
   "memory.snapshot",
   "memory.started",
   "vision.attached",
+  "vision.frame_selected",
   "vision.ocr_completed",
   "research.needed",
   "research.requested",
@@ -170,6 +216,17 @@ const EVENT_TYPES = [
   "skill.script_executed",
   "tool.output_delta",
   "file.changed",
+  "media.job_queued",
+  "media.job_state_changed",
+  "media.job_progress",
+  "media.output_created",
+  "media.job_failed",
+  "media.job_cancelled",
+  "voice.user_committed",
+  "voice.state_changed",
+  "voice.tts_failed",
+  "voice.audio_save_failed",
+  "voice.interrupted",
   "turn.completed",
   "turn.failed",
   "turn.cancelled",

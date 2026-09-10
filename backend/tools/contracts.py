@@ -30,11 +30,13 @@ class ToolResult:
 class ToolContext:
     session_id: str
     turn_id: str
+    agent_task_id: str | None = None
     on_snapshot: Callable[[dict], Awaitable[None]] | None = None
     on_output: Callable[[dict], Awaitable[None]] | None = None
     selected_skill_ids: set[str] = field(default_factory=set)
     network_approved: bool = False
     on_event: Callable[[str, dict], Awaitable[None]] | None = None
+    allowed_tool_names: set[str] | None = None
 
 
 class Tool(ABC):
@@ -45,6 +47,7 @@ class Tool(ABC):
     read_only: bool = True
     destructive: bool = False
     open_world: bool = False
+    internal_state_only: bool = False
     timeout_seconds: float | None = None
 
     def dependency_fingerprint(self, context: ToolContext, arguments: dict[str, Any]) -> str | None:
@@ -61,6 +64,7 @@ class Tool(ABC):
                 "readOnly": self.read_only,
                 "destructive": self.destructive,
                 "openWorld": self.open_world,
+                "internalStateOnly": self.internal_state_only,
             },
             "timeout_seconds": self.timeout_seconds,
         }

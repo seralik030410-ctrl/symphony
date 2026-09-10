@@ -8,6 +8,7 @@ import { SkillTrace } from "./SkillTrace";
 import { ArtifactCards } from "../artifacts/ArtifactView";
 import { ContextTrace } from "./ContextTrace";
 import { ResearchTrace } from "./ResearchTrace";
+import { AgentTaskTree } from "../agents/AgentTaskTree";
 
 interface MessageListProps {
   messages: Message[];
@@ -89,6 +90,7 @@ export function MessageList({
                 <SkillTrace events={turnEvents} />
                 <ContextTrace events={turnEvents} />
                 <ResearchTrace events={turnEvents} />
+                <AgentTaskTree turnId={message.turn_id} />
                 <ArtifactCards events={turnEvents} onOpen={onArtifact} />
                 <ToolActivity
                   events={turnEvents}

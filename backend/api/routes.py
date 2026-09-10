@@ -38,9 +38,10 @@ async def health(request: Request) -> dict[str, Any]:
     sandbox_ready, sandbox_message = await _state(request).sandbox.health()
     return {
         "status": "ok",
-        "stage": "research",
-        "version": "0.7.0-dev",
+        "stage": "history-recovery-heartbeat",
+        "version": "0.20.0-dev",
         "sandbox": {"ready": sandbox_ready, "message": sandbox_message},
+        "database": {"recovery_report": _state(request).database.recovery_report},
     }
 
 
@@ -58,8 +59,21 @@ async def list_sessions(request: Request) -> list[dict[str, Any]]:
 @router.post("/sessions", response_model=SessionRead, status_code=status.HTTP_201_CREATED)
 async def create_session(payload: SessionCreate, request: Request) -> dict[str, Any]:
     runtime = _state(request)
-    provider = payload.provider or "ollama"
-    adapter = runtime.gateway.get_adapter(provider)
+    profile_id = payload.provider_profile_id
+    if profile_id:
+        try:
+            profile = runtime.providers.get(profile_id)
+        except NotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        provider = "ollama" if profile["provider_type"] == "ollama" else "openai"
+    else:
+        provider = payload.provider or "ollama"
+        profile_id = "builtin-ollama" if provider == "ollama" else "builtin-openai"
+    provider_key = profile_id or provider
+    try:
+        adapter = runtime.gateway.get_adapter(provider_key)
+    except ProviderError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     model = payload.model or adapter.default_model
     if payload.model is None and provider == "ollama":
         try:
@@ -68,7 +82,10 @@ async def create_session(payload: SessionCreate, request: Request) -> dict[str, 
                 model = installed[-1]
         except ProviderError:
             pass  # Keep a configurable default; sending reports provider unavailability.
-    context_window = min(runtime.settings.default_context_window, await runtime.gateway.context_window(provider, model))
+    try:
+        context_window = min(runtime.settings.default_context_window, await runtime.gateway.context_window(provider_key, model))
+    except ProviderError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return runtime.repository.create_session(
         title=payload.title,
         provider=provider,
@@ -76,6 +93,7 @@ async def create_session(payload: SessionCreate, request: Request) -> dict[str, 
         system_prompt=payload.system_prompt,
         context_window=context_window,
         max_output=min(runtime.settings.default_max_output, context_window // 2),
+        provider_profile_id=profile_id,
     )
 
 
@@ -132,6 +150,7 @@ async def trash_session(session_id: str, request: Request) -> dict[str, Any]:
         for turn in session["turns"]:
             if turn["status"] not in FINAL_TURN_STATUSES:
                 await runtime.turn_service.cancel(turn["id"])
+        await runtime.agents.cancel_session(session_id)
         return runtime.repository.trash_session(session_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -238,13 +257,19 @@ async def update_session(
         raise HTTPException(status_code=409, detail="Дождитесь завершения сжатия памяти")
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
     try:
-        if "provider" in changes:
+        if "provider_profile_id" in changes:
+            profile = runtime.providers.get(changes["provider_profile_id"])
+            changes["provider"] = "ollama" if profile["provider_type"] == "ollama" else "openai"
+            runtime.gateway.get_adapter(changes["provider_profile_id"])
+        elif "provider" in changes:
             runtime.gateway.get_adapter(changes["provider"])
-        if {"provider", "model", "context_window", "max_output"} & changes.keys():
+            changes["provider_profile_id"] = "builtin-ollama" if changes["provider"] == "ollama" else "builtin-openai"
+        if {"provider", "provider_profile_id", "model", "context_window", "max_output"} & changes.keys():
             current = runtime.repository.get_session(session_id, include_history=False)
             provider = changes.get("provider", current["provider"])
+            provider_key = changes.get("provider_profile_id", current.get("provider_profile_id")) or provider
             model = changes.get("model", current["model"])
-            maximum = await runtime.gateway.context_window(provider, model)
+            maximum = await runtime.gateway.context_window(provider_key, model)
             if "context_window" in changes and changes["context_window"] > maximum:
                 raise HTTPException(status_code=422, detail=f"Лимит контекста этой модели в runtime — {maximum} токенов")
             context_window = changes.get("context_window", min(current["context_window"], maximum))
@@ -257,6 +282,8 @@ async def update_session(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/sessions/{session_id}/model-limits")
@@ -264,10 +291,13 @@ async def session_model_limits(session_id: str, request: Request) -> dict[str, A
     runtime = _state(request)
     try:
         session = runtime.repository.get_session(session_id, include_history=False)
-        maximum = await runtime.gateway.context_window(session["provider"], session["model"])
-        return {"max_context": maximum, "provider": session["provider"], "model": session["model"]}
+        provider_key = session.get("provider_profile_id") or session["provider"]
+        maximum = await runtime.gateway.context_window(provider_key, session["model"])
+        return {"max_context": maximum, "provider": session["provider"], "provider_profile_id": session.get("provider_profile_id"), "model": session["model"]}
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(
@@ -285,16 +315,24 @@ async def create_turn(session_id: str, payload: TurnCreate, request: Request) ->
         for item in attachments:
             runtime.file_index.verified_bytes(session_id, item)
         if payload.image_mode == "vision" and any(item["mime_type"].startswith("image/") for item in attachments):
-            capabilities = await runtime.gateway.resolve_capabilities(session["provider"], session["model"])
+            capabilities = await runtime.gateway.resolve_capabilities(session.get("provider_profile_id") or session["provider"], session["model"])
             if not capabilities.vision:
                 raise HTTPException(status_code=422, detail="Выбранная модель не поддерживает изображения. Выберите vision-модель или используйте локальный OCR.")
-        created = runtime.repository.create_turn(session_id, payload.content, payload.attachment_ids, image_mode=payload.image_mode)
+        created = runtime.repository.create_turn(
+            session_id,
+            payload.content,
+            payload.attachment_ids,
+            image_mode=payload.image_mode,
+            attachment_uses=[item.model_dump() for item in payload.attachment_uses] or None,
+        )
     except ToolError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     runtime.turn_service.start(created["turn"]["id"])
     return created
 
@@ -433,7 +471,8 @@ async def install_skill(payload: SkillInstall, request: Request) -> dict[str, An
             if not payload.zip_base64:
                 raise ToolError("invalid_archive", "Choose a ZIP file")
             return await asyncio.to_thread(skills.install_zip, payload.zip_base64,
-                                           filename=payload.filename or "skill.zip", mode=payload.mode)
+                                           filename=payload.filename or "skill.zip", subdirectory=payload.source,
+                                           mode=payload.mode)
         if payload.source_type == "folder":
             return await asyncio.to_thread(skills.install_folder, payload.source, mode=payload.mode)
         return await asyncio.to_thread(skills.install_git, payload.source, mode=payload.mode)

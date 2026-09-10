@@ -50,13 +50,19 @@ class CapabilityUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     vision: bool | None = None
     max_context: int | None = Field(default=None, ge=1024, le=1048576)
+    max_vision_frames: int | None = Field(default=None, ge=1, le=64)
+    max_image_bytes: int | None = Field(default=None, ge=1_000, le=100_000_000)
+    max_image_width: int | None = Field(default=None, ge=64, le=32_768)
+    max_image_height: int | None = Field(default=None, ge=64, le=32_768)
+    max_image_tokens: int | None = Field(default=None, ge=1, le=100_000)
+    max_vision_tokens: int | None = Field(default=None, ge=1, le=1_000_000)
 
 
 @router.get("/model-capabilities")
 async def model_capabilities(session_id: str, request: Request):
     runtime = runtime_for(request, session_id)
     session = runtime.repository.get_session(session_id, include_history=False)
-    return asdict(await runtime.gateway.resolve_capabilities(session["provider"], session["model"]))
+    return asdict(await runtime.gateway.resolve_capabilities(session.get("provider_profile_id") or session["provider"], session["model"]))
 
 
 @router.put("/model-capabilities")
@@ -69,8 +75,23 @@ async def update_capabilities(session_id: str, payload: CapabilityUpdate, reques
     if active:
         raise HTTPException(status_code=409, detail="Эта модель сейчас отвечает в другом чате. Дождитесь завершения.")
     # An override is explicit, never inferred from a model's name.
-    runtime.gateway.set_capabilities(session["provider"], session["model"], payload.model_dump(exclude_none=True))
-    return asdict(await runtime.gateway.resolve_capabilities(session["provider"], session["model"]))
+    provider_key = session.get("provider_profile_id") or session["provider"]
+    if session.get("provider_profile_id"):
+        if not payload.model_fields_set:
+            with runtime.database.transaction() as connection:
+                connection.execute("DELETE FROM provider_capability_overrides WHERE profile_id=? AND model=? AND capability='vision.images'", (provider_key, session["model"]))
+            runtime.gateway.set_capabilities(provider_key, session["model"], {})
+        if payload.vision is not None:
+            runtime.providers.set_capability(provider_key, session["model"], "vision.images", payload.vision)
+        limits = payload.model_dump(include={
+            "max_context", "max_vision_frames", "max_image_bytes", "max_image_width",
+            "max_image_height", "max_image_tokens", "max_vision_tokens",
+        }, exclude_none=True)
+        if limits:
+            runtime.gateway.set_capabilities(provider_key, session["model"], limits)
+    else:
+        runtime.gateway.set_capabilities(provider_key, session["model"], payload.model_dump(exclude_none=True))
+    return asdict(await runtime.gateway.resolve_capabilities(provider_key, session["model"]))
 
 
 @router.get("/sources")

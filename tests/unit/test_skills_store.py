@@ -72,6 +72,25 @@ def test_zip_export_edit_validation_and_security(tmp_path):
         skills.install_zip(base64.b64encode(unsafe.getvalue()).decode())
 
 
+def test_multi_skill_zip_installs_explicit_subdirectory(tmp_path):
+    skills = store(tmp_path)
+    source = tmp_path / "zip-packages"
+    make_skill(source / "packages" / "chosen", name="ZIP chosen")
+    make_skill(source / "packages" / "other", name="ZIP other")
+    payload = io.BytesIO()
+    with zipfile.ZipFile(payload, "w") as archive:
+        for path in source.rglob("*"):
+            if path.is_file():
+                archive.write(path, path.relative_to(source).as_posix())
+    installed = skills.install_zip(
+        base64.b64encode(payload.getvalue()).decode(),
+        filename="skills.zip",
+        subdirectory="packages/chosen",
+    )
+    assert installed["slug"] == "zip-chosen"
+    assert installed["source_ref"] == "skills.zip#packages/chosen"
+
+
 def test_duplicate_active_slug_and_disabled_explicit_skill(tmp_path):
     skills = store(tmp_path)
     first = skills.install_folder(str(make_skill(tmp_path / "one")))
@@ -121,7 +140,14 @@ def test_long_import_is_normalized_into_progressive_reference(tmp_path):
     assert skills.read_resource(installed["id"], reference)["content"].replace("\r\n", "\n") == original
 
 
-def test_git_url_subdirectory_selects_one_skill(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("source_url", "expected_branch"),
+    [
+        ("https://github.com/example/skills.git#packages/chosen", None),
+        ("https://github.com/example/skills/tree/main/packages/chosen", "main"),
+    ],
+)
+def test_git_url_subdirectory_selects_one_skill(tmp_path, monkeypatch, source_url, expected_branch):
     skills = store(tmp_path)
     repository = tmp_path / "remote"
     make_skill(repository / "packages" / "chosen", name="Git chosen")
@@ -135,6 +161,8 @@ def test_git_url_subdirectory_selects_one_skill(tmp_path, monkeypatch):
         assert arguments[-2] == "https://github.com/example/skills.git"
         assert "--filter=blob:none" in arguments
         assert "--sparse" in arguments
+        assert (("--branch" in arguments and arguments[arguments.index("--branch") + 1] == expected_branch)
+                if expected_branch else "--branch" not in arguments)
         shutil.copytree(repository, arguments[-1])
         pack = Path(arguments[-1]) / ".git" / "objects" / "pack" / "pack.idx"
         pack.parent.mkdir(parents=True)
@@ -143,6 +171,6 @@ def test_git_url_subdirectory_selects_one_skill(tmp_path, monkeypatch):
         return SimpleNamespace(returncode=0, stderr=b"")
 
     monkeypatch.setattr("backend.skills.store.subprocess.run", clone)
-    installed = skills.install_git("https://github.com/example/skills.git#packages/chosen")
+    installed = skills.install_git(source_url)
     assert installed["slug"] == "git-chosen"
-    assert installed["source_ref"].endswith("#packages/chosen")
+    assert installed["source_ref"] == source_url

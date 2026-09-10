@@ -301,3 +301,131 @@ Verification: all PowerShell scripts parse; 18 focused Gateway/chat/context test
 - Renamed the public product surfaces from Symphony 2.0 to FinCtrl: web UI, assistant labels, browser/API metadata, diagnostics, launch/setup messages, documentation, runtime kit text, release archive name and Tauri desktop title.
 - Kept compatibility identifiers unchanged: `SYMPHONY_*` environment variables, Python/npm package names, SQLite paths, Docker image names, sidecar binary paths and the original rebuild specification remain valid.
 - Added focused frontend, API and macOS-launcher branding checks and observed them fail before implementation. At the user's explicit request, the post-change automated test/build run was skipped before publication.
+
+## 2026-09-07 — FinCtrl 3.0 Stage 9 implementation (verification deferred)
+
+Stage 9 code is implemented but is **not yet accepted or complete**. At the user's explicit request, implementation was written before the new test suite and full regression pass.
+
+- Added migration 0014 with durable provider profiles, opaque secret references, capability overrides, persisted health state, and optional provider-profile linkage on sessions and turns. Existing `provider` columns and the direct Model Gateway streaming path remain intact for compatibility.
+- Added `backend/providers` with the eight FinCtrl 3.0 capabilities, enabled-profile selection, local/API adapter construction, isolated health checks, and recursive secret redaction. Secret values are never stored in SQLite or returned by the API; only masked state and opaque reference IDs are exposed.
+- Added provider CRUD, health and capability APIs. New chats are linked to built-in provider profiles, while legacy chats continue to resolve their original Ollama/OpenAI adapter keys. Web/server profiles use environment-variable references; desktop profiles use the OS credential store.
+- Added Settings → Providers, profile/model selection by stable profile ID, local/API profile editing, capability assignment, connection checks, and guarded deletion. Desktop secrets are written to macOS Keychain/Windows Credential Manager through generalized Tauri commands and injected into the sidecar only through the private bootstrap pipe.
+- Fixed skill ZIP imports so a root skill may contain nested `SKILL.md` resources and multi-skill archives can select a safe internal subdirectory. Fixed Git imports to accept normal GitHub `/tree/<branch>/<path>` URLs as well as clone URLs with `#subdirectory`; ambiguous repositories now return actionable choices instead of a generic failure.
+- Security boundaries retained: no embedded Git credentials or query tokens, no traversal/symlinks/submodules, bounded archive size/count, no secret echo in provider health responses, and no transfer of chat streaming into the new registry.
+
+Checks performed in this code-first phase:
+
+- Python bytecode compilation, focused module imports, clean migration initialization, application/OpenAPI initialization and repository session/turn contract smoke checks succeeded on isolated files under `tmp/`.
+- TypeScript `tsc --noEmit` succeeded.
+- Rust `cargo check` was not run because Cargo is unavailable in the current Windows environment.
+- No pytest, Vitest, production build, live provider check, upgraded production-database check, or chat parity acceptance was run. These remain the next required phase before Stage 9 can be marked complete.
+
+## 2026-09-08 — FinCtrl 3.0 Stage 10 implementation (verification deferred)
+
+Stage 10 code is implemented in the code-first phase but is **not yet accepted or complete**. Per the user's request, the dedicated tests and full regression/build pass remain deferred.
+
+- Added migration 0015 and a session-scoped media asset store. Original bytes use content-addressed SHA-256 paths under the managed media directory; metadata, provenance, links, previews, soft deletion and job history live in SQLite. Uploads verify bounded size, declared MIME signatures, decoded image integrity, safe filenames and secret-free bounded provenance.
+- Added a durable media job state machine with ordered events, monotonic progress, idempotent cancellation, explicit retry lineage and startup recovery from interrupted preparing/running/paused work. The initial `media.preview` handler demonstrates background execution and durable result linking without putting high-frequency progress into chat history.
+- Added upload/download/preview, gallery/trash/restore/purge, queue/cancel/retry and event APIs. Every read and mutation is scoped by chat id; managed paths reject absolute, traversal and linked destinations, and downloads use restrictive headers.
+- Added Settings → Media with a compact Gallery / Queue / Trash workflow, multi-file upload, progress polling, cancellation/retry, download, background preview refresh and irreversible purge confirmation. Desktop runtime now provides a dedicated app-data media directory.
+
+Code-first checks: Python bytecode compilation, TypeScript `tsc --noEmit`, clean migration/OpenAPI initialization and an isolated asset/job smoke completed successfully. The smoke covered checksum deduplication, cross-session query isolation, interrupted-job recovery through completion and readable preview output.
+
+Deferred verification: dedicated asset/job/API tests, real backend restart acceptance, Vitest, production build, full Python suite, Rust compilation and live media-provider integration.
+
+Operational note: the first application-import smoke initialized migration `0015_media.sql` in the current `data/symphony.db`. All four new media tables contained zero rows afterward; no existing session, message, provider, skill or workspace content was changed. Later smoke data used an isolated temporary database and media directory.
+
+## 2026-09-08 — FinCtrl 3.0 Stage 11 implementation (verification deferred)
+
+Stage 11 code is implemented in the code-first phase but is **not yet accepted or complete**. Dedicated tests and real-device/provider acceptance remain deferred at the user's request.
+
+- Added migration 0016 with per-chat voice settings, durable voice-session state, final transcript identity and ordered voice events. Startup recovery converts active sessions to `interrupted`; refresh therefore restores ordinary text history and a correctly inactive voice UI rather than replaying prior audio.
+- Added `backend/voice` contracts, strict transitions, incremental sentence chunking, a deterministic PCM energy VAD, mock STT/TTS and local/API OpenAI-compatible speech adapters. The Model Gateway remains responsible only for LLM/Vision; modular speech uses its own gateway and provider capabilities.
+- Added one scoped WebSocket carrying JSON controls/events and binary audio frames. Input is memory-only by default, MIME-checked and bounded to 25 MB. Origin and control-frame limits are enforced. Optional recording retention writes verified audio to the Stage 10 Media Asset Store and links it to the voice turn.
+- Final STT text creates exactly one immutable user message and turn through the existing Repository/TurnService. TTS consumes complete sentences while the model is still streaming. Barge-in clears client playback and cancels the linked turn. TTS or raw-audio-save failure leaves the text answer available.
+- Added browser microphone capture, silence-triggered commit with manual fallback, device-aware sequential playback, a compact composer VoiceBar, and Settings → Voice for STT/TTS profiles/models, language, voice, input/output devices, VAD threshold/silence and audio retention.
+
+Code-first checks: Python bytecode compilation, TypeScript `tsc --noEmit`, diff whitespace validation and an isolated end-to-end mock smoke succeeded. The smoke exercised mock STT → existing TurnService/Fake LLM → early mock TTS, producing one completed turn, two playable audio chunks and a final `idle` state.
+
+Deferred verification: dedicated state/ordering/barge-in/reconnect/TTS-failure tests, Vitest, full Python regression, production build, browser microphone/device QA, real local STT/TTS acceptance, Rust compilation and native desktop permission checks. No Stage 11 migration was intentionally applied to the production database during the isolated smoke.
+
+## 2026-09-08 — FinCtrl 3.0 Stage 12 implementation and automated verification
+
+Stage 12 code and the automated acceptance available in this environment are complete. Physical microphone/speaker QA and a configured external realtime provider remain environment-dependent checks.
+
+- Added migration `0017_voice_realtime.sql`: Auto/Omni/Modular settings, realtime profile/model and negotiated audio preferences, provider lifecycle identifiers, ordered input/output counters, usage, and first-audio/transcript/text latency timestamps.
+- Added provider-neutral realtime contracts and a separately registered adapter boundary. Implemented an OpenAI-compatible WebSocket adapter with session configuration, PCM audio input, normalized transcript/text/audio/usage events, provider event deduplication, cancellation, and disconnect reporting.
+- Added capability negotiation for codecs, sample rates, server VAD, and tool support. Auto falls back to Modular when no compatible realtime adapter can be opened; explicit Omni reports a scoped error.
+- Added the Omni runtime: chat-scoped context, ordinary user/assistant messages and turns, normalized model events, ordered audio deltas, latency metrics, safe failed-turn finalization, and provider cancellation on barge-in.
+- Updated the browser voice path to wait for mode negotiation, capture/resample PCM16 for Omni, retain compressed MediaRecorder input for Modular, and play raw PCM in sequence while dropping duplicates.
+- Updated Voice settings UI and application versions to the Stage 12 preview.
+
+Verification completed after the code-first pass: the full Python suite passes (Docker-only cases skipped by their opt-in markers), all 47 frontend tests pass, the production frontend build succeeds, Python bytecode compilation and diff validation are clean, and migration 0017 applies in an isolated database. Seven focused realtime tests cover Auto fallback, ordered audio, early/late transcripts, safe disconnect, provider cancellation, chat-context isolation, and the real OpenAI-compatible adapter over a local WebSocket provider. The verification pass also fixed provider lifecycle finalization, capability override compatibility, settings null validation, frontend chat-switch cleanup, and raw PCM playback ordering.
+
+Environment limitations: Docker Desktop is not running, Rust/Cargo is not installed, and no external realtime/STT/TTS profile is configured. Consequently Docker opt-in tests, native Tauri compilation, physical microphone/speaker QA, and an external-provider call were not run. Production data was not intentionally migrated during this pass.
+
+## 2026-09-09 — FinCtrl 3.0 Stages 13–17 implementation (verification deferred)
+
+Stages 13–17 are implemented as a code-first integration pass. Per the user's explicit request, no pytest, Vitest, live-provider acceptance or production build was run in this pass; these stages are not yet acceptance-verified.
+
+- Stage 13 adds ordered immutable vision attachment snapshots, frame provenance and token/size/dimension/model limits; camera, screen and clipboard capture; preview selection; change-aware frame sampling; Vision settings; and actual selected-frame visibility in Context Trace.
+- Stages 14–15 add a constrained ComfyUI connector, explicit private-network opt-in, safe output/proxy validation, parameterized image/video workflows, durable Quick Generate jobs, embedded same-origin Workflow Studio, workflow import/export/recents, queue and gallery.
+- Stage 16 adds a persistent Resource Coordinator with priority `realtime voice → chat/vision → STT/TTS → image → video`, resource groups, leases, heartbeat, media admission pause, restart recovery, redacted diagnostics and Conservative/Balanced/Maximum/Custom profiles. ComfyUI jobs and chat/agent work now participate in coordination.
+- Stage 17 adds a native FinCtrl Agent Kernel rather than requiring Hermes at runtime: durable task trees, fresh child context envelopes, structured results with evidence/artifacts/file changes, nested and parallel delegation, cascading cancellation, permission/tool allowlist intersection, batch tool execution and staged memory/skill learning proposals.
+- Maximum server defaults allow 32 simultaneous executors, delegation depth 8, 32 children per call, 512 tasks per tree, 64 model steps, 128 tool calls, 8M input and 2M output tokens per task, and two-hour deadlines. Runtime resource admission remains the final concurrency guard for large local models up to 200B.
+- The downloaded `hermes-agent-main` tree was used only as a local architectural reference. FinCtrl does not import it, so Windows startup and existing provider/tool/event contracts remain independent of Hermes and a future bridge can stay optional.
+
+Deferred verification: migration upgrade/rollback rehearsal, Python import and compile checks, backend/frontend suites, TypeScript and production build, actual camera/screen permissions, ComfyUI connection and generation, cancellation/restart scenarios, multi-agent permission boundaries, Docker/macOS/Tauri checks, and real 200B-server capacity tuning.
+
+Follow-up code pass: realtime voice and modular STT/TTS now use the shared priority coordinator and release their leases on completion, failure, interruption and shutdown. The subagent trace also received a static theme/accessibility pass with semantic tokens, 44px controls, explicit progress labelling and reduced-motion handling. No behavioral test suite or production build was added to this pass.
+
+## 2026-09-09 — FinCtrl 3.0 Stage 18 implementation (verification deferred)
+
+Stage 18 is implemented as a code-first pass and is not yet acceptance-verified.
+
+- Added migration `0023_agent_control.sql` with task execution mode/activity health, a durable ordered steer/stop mailbox, and idempotent background completion receipts.
+- Added background delegation that returns task IDs immediately while preserving the existing foreground result contract and shared Resource Coordinator limits.
+- Added safe-iteration steering, explicit stop-one/stop-subtree behavior, exception-consuming background ownership, and an advisory activity monitor with 300/600/1800-second profile warnings.
+- Added `agent.control` plus API routes for command submission/history, session background state, and receipt acknowledgement. Steering cannot change provider, model, permissions, tools, credentials, ownership, or budgets.
+- The root orchestrator may control active background work from a later turn in the same chat; delegated agents are restricted to their own descendants. Moving a chat to trash now cancels its active agent trees, and pre-start cancellation is persisted instead of leaving orphaned queued work.
+- Extended the existing inline task tree with activity phase, background state, stalled warnings, a bounded guidance composer, scoped stop controls, and refresh-safe completion notices.
+- Explicit exclusions remain: subagent auto-approval, automatic activation of memory/skill changes, arbitrary process handoff, remote gateways, cron, MoA, and provider failover.
+
+Static checks in this code-first pass: Python bytecode compilation, TypeScript no-emit checking, and diff whitespace validation. Pytest, Vitest, migration execution, live providers, production build, Rust/Tauri and end-to-end acceptance remain deferred at the user's request.
+
+## 2026-09-09 — FinCtrl 3.0 Stage 19 implementation (verification deferred)
+
+Stage 19 is implemented as a code-first pass and is not yet acceptance-verified.
+
+- Added migration `0024_agent_tool_routing.sql` with durable lazy-tool settings, per-role provider/model routes and immutable task roles.
+- Added read-only `tool.search`: deterministic bounded catalog ranking returns metadata for registered tools only. Main turns start with a compact core; subagents search only within their inherited allowlist; successful matches become model-visible on the next iteration without changing policy or permissions.
+- Added role-aware delegation for worker/orchestrator/code/research/vision/media/review. Resolution is explicit task override, configured role route, then chat inheritance; missing or disabled provider profiles reject new delegation without silent failover.
+- Added Settings → Subagents controls for lazy tool schemas and optional provider/model routes, plus role labels in the task tree. The main-chat model remains untouched.
+- Kept exclusions from the Hermes review: no plugin installation through discovery, auto-approval, automatic memory/skill activation, MoA, remote gateways, or provider failover.
+
+Static verification for this code-first phase is limited to Python bytecode compilation, TypeScript no-emit checking and diff whitespace validation. Pytest, Vitest, migration execution, production build, live providers, schema-token measurements and end-to-end routing acceptance remain deferred at the user's request.
+
+## 2026-09-09 — FinCtrl 3.0 Stage 20 implementation (verification deferred)
+
+Stage 20 is implemented as a code-first pass and is not yet acceptance-verified.
+
+- Added migration `0025_history_heartbeat.sql`: synchronized FTS5 indexing for user/assistant messages plus durable background-task heartbeat watches and acknowledgement events.
+- Added bounded local history search with quoted lexical tokens, live-message/session joins, trash exclusion and a navigation-only API. Search output is plain untrusted text and is never inserted into model context.
+- Added pre-migration SQLite integrity checks, consistent online backups, validation before retention/restoration, five-copy rotation and preservation of a damaged primary plus WAL/SHM companions. Startup fails without replacing the source when no valid backup exists; health exposes filenames and categorical recovery state only.
+- Added a non-executing heartbeat supervisor for background subagents. It observes due task state, records only stalled/resumed/terminal transitions, supports acknowledgement and never invokes a model, tool, command, skill, network request or schedule.
+- Added in-process Resource Coordinator lease renewal while an agent executor owns admitted work. Lease renewal does not touch task activity, so genuine stalls remain observable.
+- Added compact chat-rail history navigation and refresh-safe heartbeat notices to the existing background-agent surface.
+
+Static verification for this code-first phase is limited to Python bytecode compilation, TypeScript no-emit checking and diff whitespace validation. Pytest, Vitest, migration execution, corruption/recovery drills, production build, live providers and end-to-end heartbeat/search acceptance remain deferred at the user's request.
+
+## 2026-09-10 — FinCtrl 3.0 Stages 9–20 automated verification
+
+The deferred automated verification pass is complete for the local, mocked and isolated paths available on this Windows host.
+
+- Added and expanded focused backend tests covering provider secret boundaries and capabilities, role routing, resource admission/priority/lease recovery, media integrity and job state, voice/vision contracts, ComfyUI validation plus API proxy forwarding/header filtering with a mock transport, subagent budgets/allowlists/background heartbeat and duplicate suppression, lazy tool discovery, FTS history synchronization after streaming appends, backup retention and corruption recovery. Skill-import regressions now explicitly cover a multi-skill ZIP with a selected subdirectory and copied GitHub `/tree/<branch>/<path>` URLs.
+- Preserved Stage 19 production behavior (`lazy_tools_enabled=true`) while adding an explicit test-runtime default switch for legacy deterministic adapters that intentionally call tools without discovery. This restored the Stage 2–7 contract suite without weakening runtime activation checks.
+- Added an OpenAPI uniqueness regression test and split the multi-method ComfyUI proxy route into distinct GET/HEAD/POST operations, eliminating duplicate operation IDs.
+- Added two frontend Stage 20 API contract tests for encoded history queries and heartbeat acknowledgement, plus a vision-frame selection-limit regression test. Fixed strict typing in Media Workspace and Vision Settings, made deselected retained frames release their context slot without allowing re-selection races to exceed the model limit, and moved TypeScript build metadata out of the sandbox-restricted `node_modules/.tmp` directory.
+- Full backend result: **214 passed, 21 skipped**. Skips are opt-in Docker/runtime cases; no live provider was contacted and all new database/media/recovery tests used temporary paths. The macOS-launcher fixture uses a seven-second Windows/Git-Bash startup allowance (still below the real launcher's 30-second default) to avoid load-dependent false failures.
+- Frontend result: **50 passed** across 16 files; TypeScript project checking and the production Vite build succeed. The existing non-failing warning remains for the approximately 737 KB main JavaScript chunk.
+- Python bytecode compilation and diff whitespace validation succeed. Rust/Tauri compilation is still environment-blocked because `cargo` and `rustc` are not installed on this Windows host. Physical microphone/camera/screen, real ComfyUI, real local/API models, macOS signing/Gatekeeper and large-model capacity remain manual environment acceptance rather than automated failures.

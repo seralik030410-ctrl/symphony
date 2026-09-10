@@ -10,6 +10,7 @@ data/
 *.egg-info/
 frontend/node_modules/
 frontend/.vite/
+frontend/.tsbuild/
 src-tauri/target/
 src-tauri/binaries/
 src-tauri/icons/
@@ -23,3 +24,4 @@ output/
 outputs/
 release/
 tmp/
+hermes-agent-main*

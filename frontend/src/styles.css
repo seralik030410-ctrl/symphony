@@ -32,17 +32,18 @@
   .artifact-validation p { margin-block: 8px; }
   .artifact-validation nav { display: flex; flex-wrap: wrap; gap: 16px; margin-block: 12px; }
   .artifact-validation a { color: var(--link); text-underline-offset: 3px; }
-  .composer .upload-button { flex: 0 0 36px; height: 40px; }
-  .attachment-tray { display: flex; gap: 8px; inline-size: min(100%, 780px); margin: 0 auto 8px; overflow-x: auto; padding: 2px; scrollbar-width: thin; }
-  .attachment-chip { display: grid; grid-template-columns: 40px minmax(110px, 1fr) 44px; align-items: center; flex: 0 0 min(260px, 78vw); min-block-size: 56px; border: 1px solid var(--border); border-radius: 8px; background: var(--raised); overflow: hidden; }
-  .attachment-chip > img, .attachment-file-icon { inline-size: 40px; block-size: 40px; margin-inline-start: 8px; border-radius: 5px; object-fit: cover; background: var(--rail); }
-  .attachment-file-icon { display: grid; place-items: center; color: var(--text-secondary); }
-  .attachment-chip > span:nth-child(2) { min-inline-size: 0; padding-inline: 10px 4px; }
-  .attachment-chip strong, .attachment-chip small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .attachment-chip strong { font-size: 12px; }
-  .attachment-chip small { color: var(--muted); font-size: 10px; }
-  .attachment-chip > button { display: grid; place-items: center; inline-size: 44px; block-size: 56px; border: 0; background: transparent; color: var(--muted); }
-  .attachment-chip > button:hover:not(:disabled) { background: var(--rail); color: var(--danger); }
+  .composer .upload-button { flex: 0 0 36px; height: 36px; }
+  .attachment-tray { display: flex; gap: 7px; inline-size: min(100%, 720px); margin: 0 auto 7px; overflow-x: auto; padding: 3px; scrollbar-width: thin; }
+  .attachment-preview { position: relative; flex: 0 0 auto; border: 1px solid var(--border); border-radius: 7px; background: var(--raised); overflow: hidden; }
+  .attachment-preview-image { inline-size: 78px; block-size: 62px; }
+  .attachment-preview-image img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
+  .attachment-preview-image figcaption { position: absolute; inset: auto 0 0; overflow: hidden; padding: 10px 6px 4px; background: linear-gradient(transparent, rgb(24 32 39 / 74%)); color: var(--on-primary); font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+  .attachment-preview-file { display: grid; grid-template-columns: auto minmax(0, 1fr) 34px; align-items: center; gap: 7px; inline-size: min(190px, 65vw); block-size: 44px; padding-inline-start: 10px; color: var(--text-secondary); }
+  .attachment-preview-file > span { overflow: hidden; color: var(--text); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .attachment-preview > button { display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); }
+  .attachment-preview-image > button { position: absolute; inset-block-start: 3px; inset-inline-end: 3px; inline-size: 28px; block-size: 28px; border-radius: 5px; background: rgb(24 32 39 / 70%); color: var(--on-primary); }
+  .attachment-preview-file > button { inline-size: 34px; block-size: 42px; }
+  .attachment-preview > button:hover:not(:disabled) { color: var(--danger); }
   @media (max-width: 600px) {
     .artifact-toolbar { padding: 14px; gap: 8px; }
     .artifact-toolbar h2 { font-size: 16px; }
@@ -132,7 +133,7 @@
 @layer components {
   .app-shell {
     display: grid;
-    grid-template-columns: 264px minmax(420px, 1fr) 304px;
+    grid-template-columns: 236px minmax(400px, 1fr) 276px;
     grid-template-rows: minmax(0, 1fr);
     block-size: 100dvh;
     overflow: hidden;
@@ -147,9 +148,9 @@
 
   .session-rail {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
     min-block-size: 0;
-    padding: 18px 14px 14px;
+    padding: 14px 11px 11px;
   }
 
   .brand-row {
@@ -157,7 +158,7 @@
     align-items: center;
     gap: 11px;
     padding-inline: 4px;
-    margin-block-end: 20px;
+    margin-block-end: 14px;
   }
 
   .brand-mark,
@@ -172,8 +173,8 @@
   }
 
   .brand-mark {
-    inline-size: 36px;
-    block-size: 36px;
+    inline-size: 32px;
+    block-size: 32px;
     border-radius: 8px;
     font-size: 13px;
   }
@@ -184,7 +185,7 @@
   }
 
   .brand-row strong {
-    font-size: 15px;
+    font-size: 14px;
     letter-spacing: -0.015em;
   }
 
@@ -196,7 +197,7 @@
   }
 
   .new-chat-button {
-    min-block-size: 44px;
+    min-block-size: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -205,7 +206,7 @@
     border-radius: 7px;
     background: var(--accent-fill);
     color: var(--on-accent);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     transition: transform 160ms ease, background-color 160ms ease;
   }
@@ -221,10 +222,64 @@
   }
 
   .session-heading {
-    padding: 22px 10px 8px;
+    padding: 14px 10px 8px;
     color: var(--muted);
     font-size: 12px;
     font-weight: 650;
+  }
+
+  .history-search {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    min-block-size: 40px;
+    margin-block-start: 9px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--raised);
+    color: var(--muted);
+  }
+
+  .history-search:focus-within {
+    border-color: var(--link);
+    box-shadow: 0 0 0 2px var(--focus-wash);
+  }
+
+  .history-search > svg {
+    margin-inline-start: 11px;
+  }
+
+  .history-search input {
+    min-inline-size: 0;
+    block-size: 38px;
+    padding-inline: 9px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .history-search input::placeholder {
+    color: var(--muted);
+  }
+
+  .history-search input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .history-search button {
+    display: grid;
+    place-items: center;
+    inline-size: 44px;
+    block-size: 38px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .history-search button:hover {
+    color: var(--text);
   }
 
   .session-list {
@@ -232,14 +287,74 @@
     overflow-y: auto;
   }
 
+  .history-search-state {
+    padding: 12px 10px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .history-search-error {
+    color: var(--danger);
+  }
+
+  .history-result {
+    display: grid;
+    gap: 5px;
+    inline-size: 100%;
+    min-block-size: 60px;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    text-align: start;
+  }
+
+  .history-result:hover {
+    background: var(--hover);
+  }
+
+  .history-result > span {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-inline-size: 0;
+  }
+
+  .history-result strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history-result small {
+    margin-inline-start: auto;
+    color: var(--muted);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .history-result p {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .session-item {
     inline-size: 100%;
-    min-block-size: 58px;
+    min-block-size: 50px;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 9px;
-    padding: 8px 10px;
+    padding: 6px 8px;
     border: 0;
     border-radius: 8px;
     background: transparent;
@@ -271,13 +386,13 @@
 
   .session-item strong {
     color: var(--text);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 650;
   }
 
   .session-item small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .session-item i {
@@ -317,12 +432,12 @@
   .conversation-header {
     position: relative;
     z-index: 10;
-    min-block-size: 68px;
+    min-block-size: 60px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
-    padding-inline: clamp(18px, 4vw, 40px);
+    gap: 15px;
+    padding-inline: clamp(15px, 3.5vw, 32px);
     border-block-end: 1px solid var(--border);
     background: var(--surface);
     flex: 0 0 auto;
@@ -570,7 +685,7 @@
     scrollbar-gutter: stable;
     scrollbar-color: var(--scroll-thumb) transparent;
     scrollbar-width: thin;
-    padding: clamp(28px, 5vh, 52px) clamp(18px, 5vw, 64px) 28px;
+    padding: clamp(22px, 4vh, 40px) clamp(16px, 4vw, 48px) 22px;
   }
 
   .conversation-scroll::-webkit-scrollbar { inline-size: 10px; }
@@ -588,17 +703,17 @@
   }
 
   .message-list {
-    inline-size: min(100%, 780px);
+    inline-size: min(100%, 720px);
     margin-inline: auto;
   }
 
   .message {
     position: relative;
-    padding-block: 4px 30px;
+    padding-block: 3px 23px;
   }
 
   .message + .message {
-    padding-block-start: 30px;
+    padding-block-start: 23px;
     border-block-start: 1px solid var(--border);
   }
 
@@ -606,7 +721,7 @@
     inline-size: fit-content;
     max-inline-size: min(88%, 640px);
     margin-inline-start: auto;
-    padding: 12px 15px;
+    padding: 10px 13px;
     border-radius: 10px 10px 3px 10px;
     background: var(--rail);
   }
@@ -650,8 +765,8 @@
 
   .markdown {
     color: var(--text);
-    font-size: 15px;
-    line-height: 1.72;
+    font-size: 14px;
+    line-height: 1.66;
     overflow-wrap: anywhere;
   }
 
@@ -1120,7 +1235,7 @@
 
   .composer-zone {
     flex: 0 0 auto;
-    padding: 12px clamp(18px, 5vw, 64px) 14px;
+    padding: 9px clamp(16px, 4vw, 48px) 10px;
     background: var(--surface);
   }
 
@@ -1146,13 +1261,13 @@
   .scroll-to-bottom:hover { background: var(--rail); }
 
   .composer {
-    inline-size: min(100%, 780px);
-    min-block-size: 58px;
+    inline-size: min(100%, 720px);
+    min-block-size: 50px;
     display: flex;
     align-items: flex-end;
-    gap: 10px;
+    gap: 7px;
     margin-inline: auto;
-    padding: 8px;
+    padding: 6px;
     border: 1px solid var(--control-border);
     border-radius: 10px;
     background: var(--raised);
@@ -1171,16 +1286,16 @@
   .composer textarea {
     flex: 1;
     min-inline-size: 0;
-    min-block-size: 40px;
+    min-block-size: 36px;
     max-block-size: 180px;
     resize: none;
     overflow-y: auto;
-    padding: 9px 8px 7px;
+    padding: 7px 7px 5px;
     border: 0;
     outline: 0;
     background: transparent;
     color: var(--text);
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.45;
   }
 
@@ -1190,7 +1305,7 @@
 
   .send-button,
   .stop-button {
-    min-block-size: 40px;
+    min-block-size: 36px;
     border: 0;
     border-radius: 6px;
     font-weight: 700;
@@ -1198,7 +1313,7 @@
   }
 
   .send-button {
-    inline-size: 40px;
+    inline-size: 36px;
     display: grid;
     place-items: center;
     flex: 0 0 auto;
@@ -1228,7 +1343,7 @@
   }
 
   .composer-zone > p {
-    inline-size: min(100%, 780px);
+    inline-size: min(100%, 720px);
     margin: 7px auto 0;
     color: var(--muted);
     font-size: 10px;

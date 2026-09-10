@@ -1,7 +1,7 @@
 @layer components {
   .settings-page {
     display: grid;
-    grid-template-columns: 258px minmax(0, 1fr);
+    grid-template-columns: 228px minmax(0, 1fr);
     min-block-size: 100dvh;
     block-size: 100dvh;
     overflow: hidden;
@@ -14,7 +14,7 @@
     flex-direction: column;
     gap: 8px;
     min-block-size: 0;
-    padding: 18px 14px;
+    padding: 13px 11px;
     border-inline-end: 1px solid var(--border);
     background: var(--rail);
   }
@@ -27,8 +27,9 @@
     align-items: center;
     gap: 9px;
     inline-size: 100%;
-    min-block-size: 44px;
-    padding-inline: 10px;
+    min-block-size: 39px;
+    padding-inline: 9px;
+    font-size: 13px;
     border: 0;
     border-radius: 7px;
     background: transparent;
@@ -44,7 +45,8 @@
   .settings-main { position: relative; min-inline-size: 0; min-block-size: 0; overflow: auto; }
   .settings-mobile-close { display: none; position: absolute; inset-block-start: 10px; inset-inline-end: 10px; z-index: 4; }
   .general-settings,
-  .skills-settings { inline-size: min(1100px, calc(100% - 56px)); margin-inline: auto; padding-block: 64px 90px; }
+  .skills-settings,
+  .providers-settings { inline-size: min(1040px, calc(100% - 44px)); margin-inline: auto; padding-block: 44px 64px; }
   .general-settings { max-inline-size: 900px; }
   .context-settings { max-inline-size: 900px; }
   .context-budget h2 { margin-block: 0 12px; font-size: 16px; }
@@ -75,14 +77,14 @@
     .general-settings .custom-select,
     .context-budget .custom-select { inline-size: min(330px, 100%); }
   }
-  .settings-content-header { display: flex; align-items: flex-start; gap: 8px; margin-block-end: 32px; }
+  .settings-content-header { display: flex; align-items: flex-start; gap: 8px; margin-block-end: 24px; }
   .settings-content-header > div:first-child { flex: 1; min-inline-size: 0; }
-  .settings-content-header h1 { margin: 0; font-size: 27px; letter-spacing: -0.025em; }
-  .settings-content-header p { margin-block-start: 7px; color: var(--muted); font-size: 14px; }
-  .general-settings > h2 { margin: 32px 0 10px; font-size: 14px; }
+  .settings-content-header h1 { margin: 0; font-size: 23px; letter-spacing: -0.025em; }
+  .settings-content-header p { margin-block-start: 5px; color: var(--muted); font-size: 12px; }
+  .general-settings > h2 { margin: 25px 0 8px; font-size: 13px; }
 
   .settings-card {
-    margin-block-end: 16px;
+    margin-block-end: 12px;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: var(--raised);
@@ -94,17 +96,17 @@
     display: grid;
     grid-template-columns: minmax(220px, 1fr) minmax(180px, auto);
     align-items: center;
-    gap: 24px;
-    min-block-size: 68px;
-    margin-inline: 18px;
-    padding-block: 10px;
+    gap: 18px;
+    min-block-size: 58px;
+    margin-inline: 15px;
+    padding-block: 8px;
     border-block-end: 1px solid var(--border);
   }
   .settings-row:last-child { border-block-end: 0; }
   .settings-row > div,
   .settings-row > label { display: grid; gap: 4px; }
-  .settings-row strong { font-size: 13px; }
-  .settings-row small { max-inline-size: 580px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .settings-row strong { font-size: 12px; }
+  .settings-row small { max-inline-size: 580px; color: var(--muted); font-size: 11px; line-height: 1.4; }
   .settings-row > :last-child { justify-self: end; }
   .settings-row > span { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 13px; }
   .settings-row > code { color: var(--text-secondary); font-size: 12px; }
@@ -257,13 +259,32 @@
   .install-field input { min-block-size: 44px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--raised); font: inherit; font-weight: 400; }
   .install-note { margin-block: 16px 0 !important; color: var(--muted) !important; font-size: 11px !important; line-height: 1.5; }
 
+  .providers-layout { display: grid; grid-template-columns: 222px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .provider-index nav { display: grid; gap: 3px; }
+  .provider-index button { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; inline-size: 100%; min-block-size: 54px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); text-align: start; }
+  .provider-index button:hover, .provider-index button.selected { background: var(--hover); color: var(--text); }
+  .provider-index span, .provider-index strong, .provider-index small { display: block; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .provider-index strong { font-size: 12px; } .provider-index small { margin-block-start: 3px; color: var(--muted); font-size: 10px; }
+  .provider-editor h2 { margin: 24px 0 10px; font-size: 14px; }
+  .provider-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 18px; }
+  .provider-fields label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 11px; font-weight: 650; }
+  .provider-fields label.wide { grid-column: 1 / -1; }
+  .provider-fields input, .provider-fields select { min-inline-size: 0; min-block-size: 40px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--raised); color: var(--text); font: inherit; font-weight: 400; }
+  .provider-switches { display: flex; flex-wrap: wrap; gap: 20px; padding: 14px 18px; border-block-start: 1px solid var(--border); font-size: 12px; }
+  .provider-switches label, .capability-grid label { display: flex; align-items: center; gap: 8px; }
+  .provider-switches input, .capability-grid input { inline-size: 18px; block-size: 18px; accent-color: var(--link); }
+  .capability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 18px; }
+  .capability-grid label { display: grid; grid-template-columns: auto minmax(0, 1fr); padding-block: 10px; border-block-end: 1px solid var(--border); font-size: 12px; }
+  .capability-grid code { grid-column: 2; color: var(--muted); font-size: 10px; }
+  .provider-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 14px; }
+
   @media (max-width: 850px) {
     .settings-page { grid-template-columns: 200px minmax(0, 1fr); }
-    .skills-layout { grid-template-columns: 1fr; }
+    .skills-layout, .providers-layout { grid-template-columns: 1fr; }
     .skills-index { position: static; }
     .skills-index nav { display: flex; overflow-x: auto; }
     .skills-index nav button { min-inline-size: 180px; }
-    .general-settings, .skills-settings { inline-size: calc(100% - 32px); padding-block-start: 40px; }
+    .general-settings, .skills-settings, .providers-settings { inline-size: calc(100% - 32px); padding-block-start: 40px; }
     .section-heading { flex-wrap: wrap; }
   }
 
@@ -276,7 +297,7 @@
     .settings-nav nav button { inline-size: auto; min-inline-size: max-content; min-block-size: 40px; }
     .settings-main { overflow: visible; }
     .settings-mobile-close { display: none; }
-    .general-settings, .skills-settings { inline-size: calc(100% - 24px); padding-block: 28px 64px; }
+    .general-settings, .skills-settings, .providers-settings { inline-size: calc(100% - 24px); padding-block: 28px 64px; }
     .settings-content-header { flex-wrap: wrap; margin-block-end: 22px; }
     .settings-content-header h1 { font-size: 23px; }
     .settings-row { grid-template-columns: 1fr; gap: 10px; }
@@ -295,5 +316,6 @@
     .research-actions > * { inline-size: 100%; justify-content: center; }
     .diagnostics-card > ul li { grid-template-columns: 1fr; gap: 2px; }
     .desktop-secret-row { align-items: stretch; flex-direction: column; }
+    .provider-fields, .capability-grid { grid-template-columns: 1fr; }
   }
 }

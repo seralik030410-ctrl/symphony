@@ -20,6 +20,7 @@ class Settings:
     workspace_root: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "workspaces")
     skills_root: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "skills")
     bundled_skills_root: Path = field(default_factory=lambda: PROJECT_ROOT / "bundled-skills")
+    media_root: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "media")
     seed_bundled_skills: bool = True
     cors_origins: list[str] = field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -30,11 +31,13 @@ class Settings:
     openai_model: str = "local-model"
     openai_api_key: str = ""
     openai_profile_name: str = "OpenAI-compatible API"
+    provider_secrets: dict[str, str] = field(default_factory=dict, repr=False)
     provider_timeout_seconds: float = 120.0
     discovery_timeout_seconds: float = 2.0
     default_context_window: int = 16_384
     default_max_output: int = 2_048
     max_tool_calls: int = 12
+    agent_lazy_tools_enabled: bool = True
     tool_timeout_seconds: float = 10.0
     sandbox_image: str = "symphony-sandbox:stage3"
     sandbox_memory: str = "768m"
@@ -50,12 +53,15 @@ class Settings:
         workspace_root = raw_workspaces if raw_workspaces.is_absolute() else PROJECT_ROOT / raw_workspaces
         raw_skills = Path(os.getenv("SYMPHONY_SKILLS_ROOT", "data/skills"))
         skills_root = raw_skills if raw_skills.is_absolute() else PROJECT_ROOT / raw_skills
+        raw_media = Path(os.getenv("SYMPHONY_MEDIA_ROOT", "data/media"))
+        media_root = raw_media if raw_media.is_absolute() else PROJECT_ROOT / raw_media
         return cls(
             host=os.getenv("SYMPHONY_HOST", "127.0.0.1"),
             port=int(os.getenv("SYMPHONY_PORT", "8765")),
             database_path=database_path,
             workspace_root=workspace_root,
             skills_root=skills_root,
+            media_root=media_root,
             bundled_skills_root=PROJECT_ROOT / "bundled-skills",
             seed_bundled_skills=os.getenv("SYMPHONY_SEED_BUNDLED_SKILLS", "1") != "0",
             cors_origins=_csv(
@@ -77,6 +83,7 @@ class Settings:
             default_context_window=int(os.getenv("SYMPHONY_DEFAULT_CONTEXT_WINDOW", "16384")),
             default_max_output=int(os.getenv("SYMPHONY_DEFAULT_MAX_OUTPUT", "2048")),
             max_tool_calls=int(os.getenv("SYMPHONY_MAX_TOOL_CALLS", "12")),
+            agent_lazy_tools_enabled=os.getenv("SYMPHONY_AGENT_LAZY_TOOLS", "1") != "0",
             tool_timeout_seconds=float(os.getenv("SYMPHONY_TOOL_TIMEOUT_SECONDS", "10")),
             sandbox_image=os.getenv("SYMPHONY_SANDBOX_IMAGE", "symphony-sandbox:stage3"),
             sandbox_memory=os.getenv("SYMPHONY_SANDBOX_MEMORY", "768m"),

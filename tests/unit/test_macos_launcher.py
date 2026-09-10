@@ -78,7 +78,10 @@ class MacOSLauncherTests(unittest.TestCase):
         )
 
         environment = os.environ.copy()
-        environment.update(SYMPHONY_START_TIMEOUT="3")
+        # The fake backend is immediate, but Git Bash process startup can take
+        # several seconds on a loaded Windows CI host. Keep this well below the
+        # launcher's 30-second production default without making the test flaky.
+        environment.update(SYMPHONY_START_TIMEOUT="7")
         command = (
             f'export PATH="{_shell_path(fake_bin)}:/usr/bin:$PATH"; '
             f'export CALLS="{_shell_path(calls)}" READY="{_shell_path(ready)}"; '

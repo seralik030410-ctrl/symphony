@@ -43,7 +43,17 @@ def test_migrations_are_idempotent_and_enable_wal(tmp_path):
             ("0011_attachment_uses.sql",),
             ("0012_model_capabilities.sql",),
             ("0013_research.sql",),
-        ]
+            ("0014_provider_profiles.sql",),
+            ("0015_media.sql",),
+            ("0016_voice.sql",),
+                ("0017_voice_realtime.sql",),
+                ("0018_vision_frames.sql",),
+                ("0021_resources.sql",),
+                ("0022_agent_orchestrator.sql",),
+                ("0023_agent_control.sql",),
+                ("0024_agent_tool_routing.sql",),
+                ("0025_history_heartbeat.sql",),
+            ]
 
 
 def test_context_builder_never_reads_another_session(tmp_path):

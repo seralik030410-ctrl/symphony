@@ -69,6 +69,7 @@ def settings(tmp_path: Path) -> Settings:
         ollama_model="test-model",
         openai_model="test-model",
         discovery_timeout_seconds=0.05,
+        agent_lazy_tools_enabled=False,
     )
 
 

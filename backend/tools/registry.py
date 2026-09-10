@@ -63,7 +63,7 @@ class ToolRegistry:
     def definitions(self) -> list[dict[str, Any]]:
         return [tool.definition() for tool in self.tools.values()]
 
-    def model_definitions(self) -> list[dict[str, Any]]:
+    def model_definitions(self, names: set[str] | None = None) -> list[dict[str, Any]]:
         return [
             {
                 "type": "function",
@@ -74,7 +74,27 @@ class ToolRegistry:
                 },
             }
             for definition in self.definitions()
+            if names is None or definition["name"] in names
         ]
+
+    def search_catalog(self, query: str, *, allowed_names: set[str] | None = None,
+                       limit: int = 6) -> list[dict[str, Any]]:
+        from backend.tools.discovery import catalog_score
+
+        ranked: list[tuple[int, str, dict[str, Any]]] = []
+        for definition in self.definitions():
+            if definition["name"] == "tool.search":
+                continue
+            if allowed_names is not None and definition["name"] not in allowed_names:
+                continue
+            score = catalog_score(query, definition)
+            if score is not None:
+                ranked.append((score[0], score[1], definition))
+        ranked.sort(key=lambda item: (-item[0], item[1]))
+        return [{"name": item[2]["name"], "title": item[2]["title"],
+                 "description": item[2]["description"],
+                 "annotations": item[2]["annotations"]}
+                for item in ranked[:max(1, min(limit, 12))]]
 
     def get(self, name: str) -> Tool:
         try:
@@ -95,7 +115,7 @@ class ToolRegistry:
             raise ToolError("invalid_arguments", str(exc)) from exc
         timeout = tool.timeout_seconds or self.default_timeout
         snapshot = None
-        if not tool.read_only and self.snapshots:
+        if not tool.read_only and not tool.internal_state_only and self.snapshots:
             snapshot = self.snapshots.create(context.session_id, context.turn_id, name)
             if context.on_snapshot:
                 await context.on_snapshot(snapshot)

@@ -4,9 +4,12 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 import os
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.agent.context import ContextBuilder
@@ -36,6 +39,28 @@ from backend.tools.web import WebSearchTool, WebOpenTool
 from backend.api.research import router as research_router
 from backend.api.diagnostics import router as diagnostics_router
 from backend.api.setup import router as setup_router
+from backend.api.providers import router as providers_router
+from backend.api.media import router as media_router
+from backend.api.voice import router as voice_router
+from backend.providers import ProviderRegistry, SecretStore
+from backend.providers.secrets import SENSITIVE_KEY
+from backend.media.assets import MediaAssetStore
+from backend.media.jobs import MediaJobStore
+from backend.media.service import MediaService
+from backend.voice import VoiceGateway, VoiceService, VoiceStore
+from backend.agent.task_store import AgentTaskStore
+from backend.agent.executor import AgentExecutor
+from backend.agent.orchestrator import AgentOrchestrator
+from backend.tools.delegation import AgentControlTool, DelegateTool, ExecuteBatchTool, ProposeLearningTool
+from backend.tools.discovery import ToolSearchTool
+from backend.api.agents import router as agents_router
+from backend.agent.learning import LearningProposalStore
+from backend.agent.heartbeat import AgentHeartbeatService
+from backend.agent.history_search import HistorySearch
+from backend.runtime import ResourceCoordinator
+from backend.api.resources import router as resources_router
+from backend.api.comfyui import router as comfyui_router
+from backend.api.search import router as search_router
 
 
 @dataclass(slots=True)
@@ -54,6 +79,16 @@ class Runtime:
     file_index: FileIndex
     memory: MemoryStore
     research: ResearchStore
+    providers: ProviderRegistry
+    secrets: SecretStore
+    media: MediaService
+    voice: VoiceService
+    agent_tasks: AgentTaskStore
+    agents: AgentOrchestrator
+    agent_learning: LearningProposalStore
+    agent_heartbeats: AgentHeartbeatService
+    history_search: HistorySearch
+    resources: ResourceCoordinator
 
 
 def create_app(settings: Settings | None = None, gateway: ModelGateway | None = None) -> FastAPI:
@@ -63,6 +98,20 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
     repository = Repository(database)
     active_gateway = gateway or ModelGateway.from_settings(active_settings)
     active_gateway.database = database
+    secrets = SecretStore(active_settings.provider_secrets)
+    active_settings.provider_secrets.clear()
+    providers = ProviderRegistry(database, active_settings, secrets)
+    resources = ResourceCoordinator(database, secrets)
+    media_root = active_settings.media_root
+    if media_root == PROJECT_ROOT / "data" / "media" and active_settings.database_path.parent != PROJECT_ROOT / "data":
+        media_root = active_settings.database_path.parent / "media"
+    media = MediaService(
+        MediaAssetStore(database, media_root),
+        MediaJobStore(database, repository),
+        secrets,
+        resources=resources,
+    )
+    active_gateway.registry = providers
     workspaces = WorkspaceManager(active_settings.workspace_root)
     sandbox = DockerSandboxRuntime(
         workspaces,
@@ -86,6 +135,17 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
                  IndexFileTool(file_index), SearchContextTool(file_index), OcrImageTool(file_index, sandbox),
                  WebSearchTool(research, web_client), WebOpenTool(research, web_client)]:
         tools.tools[tool.name] = tool
+    agent_tasks = AgentTaskStore(database, lazy_tools_default=active_settings.agent_lazy_tools_enabled)
+    agent_learning = LearningProposalStore(database)
+    agent_heartbeats = AgentHeartbeatService(database, agent_tasks)
+    history_search = HistorySearch(database)
+    agent_executor = AgentExecutor(agent_tasks, repository, active_gateway, tools, policy, resources)
+    agents = AgentOrchestrator(agent_tasks, repository, agent_executor, tools, agent_heartbeats)
+    tools.tools["agent.delegate"] = DelegateTool(agents)
+    tools.tools["agent.control"] = AgentControlTool(agents)
+    tools.tools["agent.execute_batch"] = ExecuteBatchTool(tools, repository, policy)
+    tools.tools["agent.propose_learning"] = ProposeLearningTool(agent_learning)
+    tools.tools["tool.search"] = ToolSearchTool(tools)
     turn_service = TurnService(
         repository,
         active_gateway,
@@ -97,6 +157,10 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
         memory=memory,
         max_tool_calls=active_settings.max_tool_calls,
     )
+    turn_service.agents = agents
+    turn_service.resources = resources
+    voice = VoiceService(VoiceStore(database, repository), VoiceGateway(providers), repository, turn_service, secrets, media.assets,
+                         resources=resources)
     runtime = Runtime(
         settings=active_settings,
         database=database,
@@ -112,11 +176,26 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
         file_index=file_index,
         memory=memory,
         research=research,
+        providers=providers,
+        secrets=secrets,
+        media=media,
+        voice=voice,
+        agent_tasks=agent_tasks,
+        agents=agents,
+        agent_learning=agent_learning,
+        agent_heartbeats=agent_heartbeats,
+        history_search=history_search,
+        resources=resources,
     )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         repository.mark_inflight_interrupted()
+        agent_tasks.recover()
+        resources.initialize()
+        agent_heartbeats.reconcile_after_restart()
+        agents.start_monitor()
+        agent_heartbeats.start()
         application.state.runtime = runtime
         # Best effort at startup, mandatory/retried before any later execution.
         from backend.tools.contracts import ToolError
@@ -124,16 +203,33 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
             await sandbox.recover_orphans()
         except (ToolError, TimeoutError):
             pass
+        await media.start()
+        voice.store.recover()
         yield
+        await voice.shutdown()
+        await agent_heartbeats.shutdown()
+        await agents.shutdown()
+        await media.shutdown()
         await turn_service.shutdown()
 
     application = FastAPI(
         title="FinCtrl",
-        version="0.7.0-dev",
-        description="Stage 7 research preview: direct chat, bounded host networking and local-first desktop shell",
+        version="0.20.0-dev",
+        description="FinCtrl multimodal runtime with durable subagent orchestration",
         lifespan=lifespan,
     )
     application.state.runtime = runtime
+
+    @application.exception_handler(RequestValidationError)
+    async def validation_error(_request: Request, exc: RequestValidationError):
+        errors = []
+        for source in exc.errors():
+            error = dict(source)
+            location = tuple(str(part) for part in error.get("loc", ()))
+            if any(SENSITIVE_KEY.search(part) for part in location):
+                error["input"] = "***"
+            errors.append(secrets.redact(error))
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
     application.add_middleware(
         CORSMiddleware,
         allow_origins=active_settings.cors_origins,
@@ -147,6 +243,13 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
     application.include_router(research_router)
     application.include_router(diagnostics_router)
     application.include_router(setup_router)
+    application.include_router(providers_router)
+    application.include_router(media_router)
+    application.include_router(voice_router)
+    application.include_router(agents_router)
+    application.include_router(resources_router)
+    application.include_router(comfyui_router)
+    application.include_router(search_router)
 
     frontend_dist = PROJECT_ROOT / "frontend" / "dist"
     if frontend_dist.exists():

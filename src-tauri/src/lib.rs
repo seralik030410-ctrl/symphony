@@ -13,6 +13,7 @@ use tauri_plugin_shell::{process::{CommandChild, CommandEvent}, ShellExt};
 // Keep the legacy credential namespace so existing API keys remain available after the rename.
 const SERVICE_NAME: &str = "Symphony 2.0";
 const OPENAI_KEY_ACCOUNT: &str = "openai-compatible-api-key";
+const PROVIDER_SECRET_INDEX: &str = "provider-secret-index";
 const API_ADDRESS: &str = "http://127.0.0.1:8765";
 #[derive(Default)]
 struct DroppedFiles(Mutex<DropStore>);
@@ -68,6 +69,46 @@ fn delete_openai_key(window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
+fn valid_secret_ref(value: &str) -> bool {
+    !value.is_empty() && value.len() <= 64 && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+}
+
+fn provider_secret_account(reference_id: &str) -> String { format!("provider-secret-{reference_id}") }
+
+fn provider_secret_ids() -> Result<Vec<String>, String> {
+    match secret_entry(PROVIDER_SECRET_INDEX)?.get_password() {
+        Ok(value) => serde_json::from_str::<Vec<String>>(&value).map_err(|_| "Provider secret index is invalid".into()),
+        Err(keyring::Error::NoEntry) => Ok(Vec::new()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn save_provider_secret_ids(ids: &[String]) -> Result<(), String> {
+    secret_entry(PROVIDER_SECRET_INDEX)?.set_password(&serde_json::to_string(ids).map_err(|error| error.to_string())?)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn set_provider_secret(window: tauri::WebviewWindow, reference_id: String, value: String) -> Result<(), String> {
+    require_main(&window)?;
+    if !valid_secret_ref(&reference_id) || value.trim().is_empty() || value.len() > 4096 { return Err("Invalid provider secret".into()); }
+    secret_entry(&provider_secret_account(&reference_id))?.set_password(value.trim()).map_err(|error| error.to_string())?;
+    let mut ids = provider_secret_ids()?;
+    if !ids.contains(&reference_id) { ids.push(reference_id); save_provider_secret_ids(&ids)?; }
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_provider_secret(window: tauri::WebviewWindow, reference_id: String) -> Result<(), String> {
+    require_main(&window)?;
+    if !valid_secret_ref(&reference_id) { return Err("Invalid provider secret reference".into()); }
+    match secret_entry(&provider_secret_account(&reference_id))?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => (), Err(error) => return Err(error.to_string()),
+    }
+    let ids: Vec<String> = provider_secret_ids()?.into_iter().filter(|item| item != &reference_id).collect();
+    save_provider_secret_ids(&ids)
+}
+
 #[tauri::command]
 fn consume_dropped_file(window: tauri::WebviewWindow, token: String, state: tauri::State<'_, DroppedFiles>) -> Result<DroppedFile, String> {
     require_main(&window)?;
@@ -86,14 +127,14 @@ fn show_startup_error(app: &tauri::AppHandle, message: &str) {
     }
 }
 
-fn data_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf, PathBuf), Box<dyn std::error::Error>> {
+fn data_paths(app: &tauri::App) -> Result<(PathBuf, PathBuf, PathBuf, PathBuf), Box<dyn std::error::Error>> {
     let root = app.path().app_data_dir()?;
     fs::create_dir_all(&root)?;
-    Ok((root.join("symphony.db"), root.join("workspaces"), root.join("skills")))
+    Ok((root.join("symphony.db"), root.join("workspaces"), root.join("skills"), root.join("media")))
 }
 
 fn start_backend(app: &tauri::App) -> Result<CommandChild, Box<dyn std::error::Error>> {
-    let (database, workspaces, skills) = data_paths(app)?;
+    let (database, workspaces, skills, media) = data_paths(app)?;
     let mut command = app
         .shell()
         .sidecar("symphony-backend")?
@@ -103,6 +144,7 @@ fn start_backend(app: &tauri::App) -> Result<CommandChild, Box<dyn std::error::E
         .env("SYMPHONY_DATABASE_PATH", database)
         .env("SYMPHONY_WORKSPACE_ROOT", workspaces)
         .env("SYMPHONY_SKILLS_ROOT", skills)
+        .env("SYMPHONY_MEDIA_ROOT", media)
         .env("SYMPHONY_OPENAI_API_KEY", "");
     // Finder does not inherit the user's interactive shell PATH.
     let inherited = std::env::var_os("PATH").unwrap_or_default();
@@ -116,7 +158,14 @@ fn start_backend(app: &tauri::App) -> Result<CommandChild, Box<dyn std::error::E
         Err(_) => return Err("System secret store is locked or unavailable".into()),
     };
     let (mut events, mut child) = command.spawn()?;
-    let bootstrap = serde_json::json!({"protocol": 1, "openai_api_key": key});
+    let mut provider_secrets = serde_json::Map::new();
+    for reference_id in provider_secret_ids()? {
+        if !valid_secret_ref(&reference_id) { continue; }
+        if let Ok(value) = secret_entry(&provider_secret_account(&reference_id))?.get_password() {
+            provider_secrets.insert(reference_id, serde_json::Value::String(value));
+        }
+    }
+    let bootstrap = serde_json::json!({"protocol": 1, "openai_api_key": key, "provider_secrets": provider_secrets});
     if let Err(error) = child.write(format!("{bootstrap}\n").as_bytes()) {
         let _ = child.kill();
         return Err(error.into());
@@ -198,6 +247,8 @@ pub fn run() {
             has_openai_key,
             set_openai_key,
             delete_openai_key,
+            set_provider_secret,
+            delete_provider_secret,
             consume_dropped_file
         ])
         .setup(|app| {

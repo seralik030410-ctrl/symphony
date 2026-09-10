@@ -56,6 +56,8 @@ class PolicyEngine:
             return PolicyDecision("deny", "Unregistered network policy")
         if tool.read_only:
             return PolicyDecision("allow", "Read-only workspace operation")
+        if tool.internal_state_only:
+            return PolicyDecision("allow", "Session-local state operation")
         if tool.name == "skill.run_script":
             return PolicyDecision("approval_required", "Review this skill script and its arguments before isolated execution", "medium")
         if tool.name != "sandbox.shell":

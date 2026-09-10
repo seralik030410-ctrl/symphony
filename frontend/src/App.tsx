@@ -1,6 +1,7 @@
 import {
   ChatCircle,
   ChatsCircle,
+  MagnifyingGlass,
   Plus,
   PaperPlaneRight,
   Stop,
@@ -23,10 +24,10 @@ import { Dialog } from "./ui/Dialog";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 import { UploadButton } from "./artifacts/UploadButton";
 import { AttachmentTray } from "./chat/AttachmentTray";
-import { ImageMode } from "./chat/ImageMode";
 import type { OpenWorkspace } from "./workspace/state";
 import { previewPath } from "./chat/preview";
 import { desktopInvoke, listenNativeDrops, uploadDroppedBatch, type NativeFile } from "./desktop";
+import { VoiceBar } from "./voice/VoiceBar";
 import type {
   Message,
   ModelProfile,
@@ -35,6 +36,7 @@ import type {
   Turn,
   TurnEvent,
   Attachment,
+  HistorySearchResult,
 } from "./types";
 
 const ACTIVE_STATUSES = new Set(["queued", "preparing", "model_running"]);
@@ -67,7 +69,6 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [imageMode, setImageMode] = useState<"vision" | "ocr">("vision");
   const [initializing, setInitializing] = useState(true);
   const [sending, setSending] = useState(false);
   const [retryingTurnId, setRetryingTurnId] = useState<string | null>(null);
@@ -84,9 +85,38 @@ export default function App() {
   const [trash, setTrash] = useState<Array<{ id: string; title: string; deleted_at: string }> | null>(null);
   const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
   const [emptyingTrash, setEmptyingTrash] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyResults, setHistoryResults] = useState<HistorySearchResult[]>([]);
+  const [historySearching, setHistorySearching] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   useEffect(() => { localStorage.setItem("symphony.chatsOpen", String(chatsOpen)); }, [chatsOpen]);
   useEffect(() => { localStorage.setItem("symphony.eventsOpen", String(eventsOpen)); }, [eventsOpen]);
   useEffect(() => { localStorage.setItem("symphony.workspaceOpen", String(workspaceOpen)); }, [workspaceOpen]);
+  useEffect(() => {
+    const query = historyQuery.trim();
+    if (!query) {
+      setHistoryResults([]);
+      setHistorySearching(false);
+      setHistoryError(null);
+      return;
+    }
+    let disposed = false;
+    setHistorySearching(true);
+    setHistoryError(null);
+    const timer = window.setTimeout(() => {
+      void api.searchHistory(query).then(value => {
+        if (!disposed) setHistoryResults(value.results);
+      }).catch(() => {
+        if (!disposed) {
+          setHistoryResults([]);
+          setHistoryError("Поиск истории сейчас недоступен");
+        }
+      }).finally(() => {
+        if (!disposed) setHistorySearching(false);
+      });
+    }, 250);
+    return () => { disposed = true; window.clearTimeout(timer); };
+  }, [historyQuery]);
   const subscriptions = useRef(new Map<string, EventSource>());
   const currentSessionId = useRef<string | null>(null);
   const knownEventIds = useRef(new Set<number>());
@@ -214,7 +244,6 @@ export default function App() {
       setDraft("");
       setPendingAttachments([]);
       setUploading(false);
-      setImageMode(localStorage.getItem(`symphony.imageMode.${sessionId}`) === "ocr" ? "ocr" : "vision");
       setWorkspaceRequest(null);
       if (window.innerWidth <= 720) setChatsOpen(false);
       localStorage.setItem("symphony.session", sessionId);
@@ -377,13 +406,13 @@ export default function App() {
   }
 
   async function sendMessage() {
-    const content = draft.trim() || (pendingAttachments.length ? imageMode === "ocr" ? "Извлеки текст из прикреплённых файлов" : "Рассмотри прикреплённые файлы" : "");
+    const content = draft.trim() || (pendingAttachments.length ? "Рассмотри прикреплённые файлы" : "");
     if (!session || !content || activeTurn || sending || uploading) return;
     setSending(true);
     setError(null);
     setDraft("");
     try {
-      const created = await api.createTurn(session.id, content, pendingAttachments.map(item => item.id), imageMode);
+      const created = await api.createTurn(session.id, content, pendingAttachments.map(item => item.id), "vision");
       if (currentSessionId.current !== session.id) { setSessions(await api.listSessions()); return; }
       followNext();
       setConversation((current) => ({
@@ -429,6 +458,14 @@ export default function App() {
     }
   }
 
+  async function voiceTurnStarted(turnId: string) {
+    const sessionId = currentSessionId.current;
+    if (!sessionId) return;
+    followNext();
+    await refreshSessionSnapshot(sessionId);
+    if (currentSessionId.current === sessionId) attachStream(turnId, 0);
+  }
+
   async function retryTurn(turnId: string) {
     if (!session || activeTurn || retryingTurnId) return;
     setRetryingTurnId(turnId);
@@ -450,10 +487,10 @@ export default function App() {
     }
   }
 
-  async function changeModel(provider: "ollama" | "openai", model: string) {
+  async function changeModel(provider: "ollama" | "openai", model: string, provider_profile_id?: string) {
     if (!session || activeTurn) return;
     try {
-      const updated = await api.updateSession(session.id, { provider, model });
+      const updated = await api.updateSession(session.id, { provider, model, provider_profile_id });
       if (currentSessionId.current !== session.id) return;
       setSession(updated);
       setConversation({ messages: updated.messages, turns: updated.turns });
@@ -509,8 +546,9 @@ export default function App() {
       profiles={profiles}
       active={Boolean(activeTurn)}
       onPolicy={(value) => void changePolicy(value)}
-      onModel={(provider, model) => void changeModel(provider, model)}
+      onModel={(provider, model, profileId) => void changeModel(provider, model, profileId)}
       onClose={() => setSettingsOpen(false)}
+      onProvidersChanged={() => { void api.listModels().then(setProfiles).catch(cause => setError(cause instanceof Error ? cause.message : "Профили не обновлены")); }}
       onSessionSaved={updated => { if (currentSessionId.current === updated.id) setSession(updated); }}
     />;
   }
@@ -530,9 +568,27 @@ export default function App() {
           <Plus size={17} weight="bold" aria-hidden="true" />
           Новый чат
         </button>
-        <div className="session-heading">Чаты</div>
+        <div className="history-search">
+          <MagnifyingGlass size={16} aria-hidden="true" />
+          <label className="sr-only" htmlFor="history-search-input">Поиск по истории сообщений</label>
+          <input id="history-search-input" type="search" value={historyQuery} maxLength={300}
+            placeholder="Поиск по истории" autoComplete="off" spellCheck={false}
+            onChange={event => setHistoryQuery(event.target.value)} />
+          {historyQuery ? <button type="button" aria-label="Очистить поиск" title="Очистить поиск" onClick={() => setHistoryQuery("")}><X size={15} weight="bold" /></button> : null}
+        </div>
+        <div className="session-heading">{historyQuery.trim() ? "Найденные сообщения" : "Чаты"}</div>
         <nav className="session-list">
-          {sessions.map((item) => (
+          {historyQuery.trim() ? <>
+            {historySearching ? <p className="history-search-state" role="status">Ищем в сообщениях…</p> : null}
+            {!historySearching && historyError ? <p className="history-search-state history-search-error" role="alert">{historyError}</p> : null}
+            {!historySearching && !historyError && !historyResults.length ? <p className="history-search-state">Совпадений нет. Попробуйте другие слова.</p> : null}
+            {!historySearching && !historyError ? historyResults.map(result => (
+              <button type="button" className="history-result" key={result.message_id} onClick={() => { setHistoryQuery(""); void openSession(result.session_id); }}>
+                <span><strong>{result.session_title}</strong><small>{result.role === "user" ? "Вы" : "Ассистент"}</small></span>
+                <p>{result.snippet}</p>
+              </button>
+            )) : null}
+          </> : sessions.map((item) => (
             <div className="session-row" key={item.id}>
             <button
               type="button"
@@ -553,8 +609,8 @@ export default function App() {
         </nav>
         <div className="rail-footer">
           <button className="text-button" onClick={() => void showTrash()}><Trash size={18} weight="bold" /> Корзина</button>
-          <span>Этап 6 · Контекст и память</span>
-          <strong>Документы и инструменты</strong>
+          <span>FinCtrl 3.0 · Agents + Media</span>
+          <strong>Медиа и инструменты</strong>
         </div>
       </aside> : null}
 
@@ -585,7 +641,7 @@ export default function App() {
                 session={session}
                 profiles={profiles}
                 disabled={Boolean(activeTurn)}
-                onChange={(provider, model) => void changeModel(provider, model)}
+                onChange={(provider, model, profileId) => void changeModel(provider, model, profileId)}
               />
             </div>
           ) : null}
@@ -685,8 +741,9 @@ export default function App() {
 
         <div className="composer-zone">
           {session ? <AttachmentTray sessionId={session.id} items={pendingAttachments} disabled={Boolean(activeTurn) || sending} onRemove={id => void removeAttachment(id)} /> : null}
-          {session && pendingAttachments.some(item => item.mime_type.startsWith("image/")) ? <ImageMode session={session} value={imageMode} disabled={Boolean(activeTurn) || sending || uploading} onChange={value => { setImageMode(value); localStorage.setItem(`symphony.imageMode.${session.id}`, value); }} /> : null}
           <div className="composer" data-busy={Boolean(activeTurn)}>
+            {session ? <VoiceBar key={session.id} sessionId={session.id} disabled={Boolean(activeTurn) || sending || uploading || settingsOpen}
+              onTurnStarted={turnId => void voiceTurnStarted(turnId)} onError={message => setError(message)} /> : null}
             {session ? <UploadButton key={session.id} sessionId={session.id} disabled={Boolean(activeTurn) || sending || uploading || pendingAttachments.length >= 8}
               remaining={8 - pendingAttachments.length} onBusyChange={value => { if (currentSessionId.current === session.id) setUploading(value); }}
               onUploaded={value => { if (currentSessionId.current === session.id) {

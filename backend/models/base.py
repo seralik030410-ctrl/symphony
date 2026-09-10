@@ -2,13 +2,25 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Literal
+from enum import StrEnum
+from typing import Any, AsyncIterator, ClassVar, Literal
 
 
 class ProviderError(RuntimeError):
     def __init__(self, message: str, *, code: str = "provider_error") -> None:
         super().__init__(message)
         self.code = code
+
+
+class Capability(StrEnum):
+    TEXT_CHAT = "text.chat"
+    VISION_IMAGES = "vision.images"
+    VISION_LIVE_FRAMES = "vision.live_frames"
+    AUDIO_TRANSCRIPTION = "audio.transcription"
+    AUDIO_SYNTHESIS = "audio.synthesis"
+    AUDIO_REALTIME = "audio.realtime"
+    MEDIA_IMAGE_GENERATION = "media.image_generation"
+    MEDIA_VIDEO_GENERATION = "media.video_generation"
 
 
 @dataclass(slots=True)
@@ -18,8 +30,42 @@ class ModelCapabilities:
     native_tools: bool = False
     json_schema: bool = False
     reasoning_stream: bool = False
+    vision_live_frames: bool = False
+    audio_transcription: bool = False
+    audio_synthesis: bool = False
+    audio_realtime: bool = False
+    media_image_generation: bool = False
+    media_video_generation: bool = False
     max_context: int = 16_384
     max_output: int = 2_048
+    # Vision limits are model constraints, not client preferences.  Providers
+    # may override them through the existing capability override path.
+    max_vision_frames: int = 8
+    max_image_bytes: int = 10_000_000
+    max_image_width: int = 4_096
+    max_image_height: int = 4_096
+    max_image_tokens: int = 2_048
+    max_vision_tokens: int = 8_192
+
+    _FIELDS: ClassVar[dict[Capability, str]] = {
+        Capability.TEXT_CHAT: "text",
+        Capability.VISION_IMAGES: "vision",
+        Capability.VISION_LIVE_FRAMES: "vision_live_frames",
+        Capability.AUDIO_TRANSCRIPTION: "audio_transcription",
+        Capability.AUDIO_SYNTHESIS: "audio_synthesis",
+        Capability.AUDIO_REALTIME: "audio_realtime",
+        Capability.MEDIA_IMAGE_GENERATION: "media_image_generation",
+        Capability.MEDIA_VIDEO_GENERATION: "media_video_generation",
+    }
+
+    def supports(self, capability: Capability | str) -> bool:
+        return bool(getattr(self, self._FIELDS[Capability(capability)]))
+
+    def set_support(self, capability: Capability | str, enabled: bool) -> None:
+        setattr(self, self._FIELDS[Capability(capability)], bool(enabled))
+
+    def capability_map(self) -> dict[str, bool]:
+        return {capability.value: self.supports(capability) for capability in Capability}
 
 
 @dataclass(slots=True)

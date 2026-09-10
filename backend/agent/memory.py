@@ -104,7 +104,7 @@ class MemoryStore:
                 usage = {"input_tokens": 0, "output_tokens": 0}
                 try:
                     async with asyncio.timeout(180):
-                        async for event in gateway.stream_chat(session["provider"], request):
+                        async for event in gateway.stream_chat(session.get("provider_profile_id") or session["provider"], request):
                             if event.type == "text_delta":
                                 text += event.delta
                                 if len(text) > 16_000:
@@ -115,7 +115,7 @@ class MemoryStore:
                                 usage = {"input_tokens": event.usage.input_tokens, "output_tokens": event.usage.output_tokens}
                     values = self.validate(text)
                 except BaseException:
-                    await gateway.cancel(session["provider"], request_id)
+                    await gateway.cancel(session.get("provider_profile_id") or session["provider"], request_id)
                     raise
                 covered.update(item["id"] for item in batch)
                 # Provenance IDs come only from this session's DB, never model output.

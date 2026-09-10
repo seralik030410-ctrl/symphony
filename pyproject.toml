@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "symphony-2"
-version = "0.7.0.dev0"
+version = "0.20.0.dev0"
 description = "Local-first chat runtime with observable isolated project execution"
 requires-python = ">=3.12"
 dependencies = [
@@ -12,6 +12,7 @@ dependencies = [
   "httpx>=0.28,<1",
   "pydantic>=2.10,<3",
   "uvicorn[standard]>=0.34,<1",
+  "websockets>=15,<17",
   "reportlab>=4.4,<5",
   "openpyxl>=3.1.5,<4",
   "python-docx>=1.2,<2",
@@ -38,6 +39,12 @@ packages = [
   "backend.storage",
   "backend.tools",
   "backend.research",
+  "backend.providers",
+  "backend.media",
+  "backend.media.providers",
+  "backend.voice",
+  "backend.vision",
+  "backend.runtime",
 ]
 
 [tool.pytest.ini_options]
