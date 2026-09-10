@@ -119,10 +119,11 @@ def inspect_xlsx(path: Path) -> dict[str, Any]:
     sheets_data: list[dict[str, Any]] = []
     total_formulas = 0
 
+    total_charts = 0
     for name in wb.sheetnames:
         sheet = wb[name]
         max_row = min(sheet.max_row or 0, 500)
-        max_col = min(sheet.max_column or 0, 50)
+        max_col = min(sheet.max_column or 0, 100)
         formulas_in_sheet: list[dict[str, str]] = []
         rows: list[list[Any]] = []
 
@@ -139,12 +140,46 @@ def inspect_xlsx(path: Path) -> dict[str, Any]:
             if any(row_vals):
                 rows.append(row_vals)
 
+        # Charts inspection
+        sheet_charts: list[dict[str, str]] = []
+        for ch in getattr(sheet, "_charts", []):
+            ch_title = ""
+            try:
+                if isinstance(ch.title, str):
+                    ch_title = ch.title
+                elif hasattr(ch.title, "tx") and hasattr(ch.title.tx, "rich") and hasattr(ch.title.tx.rich, "p"):
+                    runs: list[str] = []
+                    for p in ch.title.tx.rich.p:
+                        for r in getattr(p, "r", []):
+                            if hasattr(r, "t") and r.t:
+                                runs.append(str(r.t))
+                    ch_title = " ".join(runs)
+                elif hasattr(ch.title, "text") and isinstance(ch.title.text, str):
+                    ch_title = ch.title.text
+            except Exception:
+                ch_title = ""
+
+            sheet_charts.append({
+                "type": ch.__class__.__name__,
+                "title": ch_title,
+            })
+            total_charts += 1
+
+        col_widths = {
+            col_letter: dim.width
+            for col_letter, dim in sheet.column_dimensions.items()
+            if dim.width is not None
+        }
+
         sheets_data.append({
             "name": name,
-            "max_row": sheet.max_row,
-            "max_column": sheet.max_column,
+            "max_row": sheet.max_row or 0,
+            "max_column": sheet.max_column or 0,
             "formula_count": len(formulas_in_sheet),
             "sample_formulas": formulas_in_sheet[:20],
+            "chart_count": len(sheet_charts),
+            "charts": sheet_charts,
+            "column_widths": col_widths,
             "rows": rows[:100],  # first 100 rows for preview
             "headers": rows[0] if rows else [],
         })
@@ -156,6 +191,7 @@ def inspect_xlsx(path: Path) -> dict[str, Any]:
         "sheet_names": wb.sheetnames,
         "sheet_count": len(wb.sheetnames),
         "total_formulas": total_formulas,
+        "total_charts": total_charts,
         "sheets": sheets_data,
         "sheets_by_name": {s["name"]: s for s in sheets_data},
     }

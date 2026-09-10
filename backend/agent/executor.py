@@ -25,7 +25,7 @@ artifacts, and unresolved issues. Never claim an action succeeded unless its too
 
 LAZY_AGENT_CORE = {
     "tool.search", "fs.list", "fs.read", "search.rg", "agent.delegate", "agent.control",
-    "office.inspect", "office.create", "office.patch", "office.convert",
+    "office.inspect", "office.analyze", "office.create", "office.patch", "office.chart", "office.convert",
 }
 
 

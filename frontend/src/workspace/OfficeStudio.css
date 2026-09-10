@@ -595,3 +595,373 @@
   background: var(--canvas);
   color: var(--text);
 }
+
+.office-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.office-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.office-icon-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* Spreadsheet Formatting Toolbar */
+.office-spreadsheet-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.office-format-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.office-format-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 7px;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.office-format-btn:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--border);
+}
+
+.office-format-btn.active {
+  background: var(--selected);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.office-format-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.office-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* Formula dropdown menu */
+.office-fx-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--shadow);
+  z-index: 40;
+  min-width: 180px;
+  padding: 4px 0;
+}
+
+.office-fx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.1s;
+}
+
+.office-fx-item:hover {
+  background: var(--hover);
+  color: var(--accent);
+}
+
+.office-fx-item .fx-symbol {
+  font-weight: 700;
+  color: var(--accent);
+  font-family: monospace;
+  width: 14px;
+}
+
+/* Col header & resize handle */
+.office-col-header {
+  position: relative;
+  user-select: none;
+}
+
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  bottom: 0;
+  cursor: col-resize;
+  z-index: 5;
+}
+
+.col-resize-handle:hover,
+.col-resize-handle:active {
+  background: var(--accent);
+}
+
+/* Formula indicator triangle in cell */
+.office-formula-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-top: 6px solid #16a34a;
+  border-right: 6px solid transparent;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Context Menu */
+.office-context-menu {
+  position: fixed;
+  z-index: 100;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px var(--shadow);
+  padding: 4px 0;
+  min-width: 190px;
+  font-size: 12px;
+}
+
+.office-ctx-item {
+  padding: 6px 14px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.1s;
+}
+
+.office-ctx-item:hover {
+  background: var(--hover);
+  color: var(--accent);
+}
+
+.office-ctx-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* Analysis Modal */
+.office-analysis-modal {
+  width: 740px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.office-stat-chips-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.office-stat-card {
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.office-stat-card.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.office-stat-card.success {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.office-stat-card .stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.office-stat-card .stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.office-formula-error-banner {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  font-size: 12px;
+}
+
+.error-cells-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.error-pill {
+  background: var(--surface);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.office-profile-table-wrapper {
+  margin-top: 16px;
+}
+
+.office-profile-table-wrapper h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.office-profile-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.office-profile-table th,
+.office-profile-table td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: right;
+}
+
+.office-profile-table th:first-child,
+.office-profile-table td:first-child {
+  text-align: left;
+}
+
+.office-profile-table th {
+  background: var(--subtle);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.col-type-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.col-type-tag.numeric {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.col-type-tag.text {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Chart Modal */
+.office-chart-modal {
+  width: 600px;
+  max-width: 90vw;
+}
+
+.chart-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.chart-ctrl-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.chart-type-selector {
+  display: flex;
+  gap: 6px;
+}
+
+.chart-type-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--canvas);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.chart-type-btn.active {
+  background: var(--selected);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chart-preview-stage {
+  margin-top: 14px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.office-chart-svg {
+  width: 100%;
+  height: 220px;
+}
+

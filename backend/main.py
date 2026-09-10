@@ -62,7 +62,14 @@ from backend.api.resources import router as resources_router
 from backend.api.comfyui import router as comfyui_router
 from backend.api.search import router as search_router
 from backend.api.office import router as office_router
-from backend.tools.office import OfficeInspectTool, OfficeCreateTool, OfficePatchTool, OfficeConvertTool
+from backend.tools.office import (
+    OfficeInspectTool,
+    OfficeAnalyzeTool,
+    OfficeCreateTool,
+    OfficePatchTool,
+    OfficeChartTool,
+    OfficeConvertTool,
+)
 
 
 @dataclass(slots=True)
@@ -136,7 +143,8 @@ def create_app(settings: Settings | None = None, gateway: ModelGateway | None = 
     for tool in [DocumentSchemaTool(), RenderDocumentTool(artifacts), InspectArtifactTool(artifacts), ReadTableTool(workspaces),
                  IndexFileTool(file_index), SearchContextTool(file_index), OcrImageTool(file_index, sandbox),
                  WebSearchTool(research, web_client), WebOpenTool(research, web_client),
-                 OfficeInspectTool(workspaces), OfficeCreateTool(workspaces), OfficePatchTool(workspaces), OfficeConvertTool(workspaces)]:
+                 OfficeInspectTool(workspaces), OfficeAnalyzeTool(workspaces), OfficeCreateTool(workspaces),
+                 OfficePatchTool(workspaces), OfficeChartTool(workspaces), OfficeConvertTool(workspaces)]:
         tools.tools[tool.name] = tool
     agent_tasks = AgentTaskStore(database, lazy_tools_default=active_settings.agent_lazy_tools_enabled)
     agent_learning = LearningProposalStore(database)

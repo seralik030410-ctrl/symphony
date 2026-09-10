@@ -10,10 +10,14 @@ from backend.tools.workspace import WorkspaceManager
 from backend.tools.office import (
     OfficeInspectTool,
     OfficeInspectInput,
+    OfficeAnalyzeTool,
+    OfficeAnalyzeInput,
     OfficeCreateTool,
     OfficeCreateInput,
     OfficePatchTool,
     OfficePatchInput,
+    OfficeChartTool,
+    OfficeChartInput,
     OfficeConvertTool,
     OfficeConvertInput,
 )
@@ -85,6 +89,55 @@ async def test_office_tools_lifecycle(tmp_path: Path):
     md_file = workspaces.resolve(session_id, "notes.md")
     assert md_file.exists()
     assert "Strategic Roadmap" in md_file.read_text(encoding="utf-8")
+
+    # 5. Create XLSX, Analyze Tool & Chart Tool
+    res_create_xlsx = await create_tool.execute(
+        context,
+        OfficeCreateInput(
+            path="metrics.xlsx",
+            sheets=[
+                {
+                    "name": "Revenue",
+                    "headers": ["Quarter", "Target", "Actual"],
+                    "rows": [
+                        ["Q1", 100, 120],
+                        ["Q2", 150, 160],
+                        ["Q3", 200, 210],
+                    ],
+                }
+            ],
+        ),
+    )
+    assert res_create_xlsx.output["status"] == "created"
+
+    # Analyze Tool
+    analyze_tool = OfficeAnalyzeTool(workspaces)
+    res_analyze = await analyze_tool.execute(
+        context,
+        OfficeAnalyzeInput(path="metrics.xlsx", sheet_name="Revenue"),
+    )
+    assert res_analyze.output["dimensions"]["data_row_count"] == 3
+    assert len(res_analyze.output["columns"]) == 3
+    cols = {c["name"]: c for c in res_analyze.output["columns"]}
+    assert cols["Target"]["type"] == "numeric"
+    assert cols["Target"]["stats"]["sum"] == 450
+
+    # Chart Tool
+    chart_tool = OfficeChartTool(workspaces)
+    res_chart = await chart_tool.execute(
+        context,
+        OfficeChartInput(
+            path="metrics.xlsx",
+            sheet_name="Revenue",
+            chart_type="bar",
+            data_range="C1:C4",
+            categories_range="A2:A4",
+            title="Actual Revenue Performance",
+            target_cell="E2",
+        ),
+    )
+    assert res_chart.output["status"] == "success"
+    assert "metrics.xlsx" in res_chart.changed_files
 
 
 def test_office_api_endpoints(tmp_path: Path):
@@ -162,3 +215,18 @@ def test_office_api_endpoints(tmp_path: Path):
     )
     assert resp_convert.status_code == 200
     assert resp_convert.json()["status"] == "converted"
+
+    # 7. Analyze file via office API
+    resp_analyze = client.post(
+        f"/api/sessions/{session_id}/office/analyze",
+        json={
+            "path": "budget.xlsx",
+            "sheet_name": "Summary",
+            "deep": True,
+        },
+    )
+    assert resp_analyze.status_code == 200
+    analysis = resp_analyze.json()
+    assert analysis["file_name"] == "budget.xlsx"
+    assert analysis["sheet_name"] == "Summary"
+    assert len(analysis["columns"]) == 3

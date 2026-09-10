@@ -11,7 +11,12 @@ from backend.office.editor import (
     patch_docx,
     patch_xlsx,
     patch_pptx,
+    add_chart_to_xlsx,
+    fill_range_xlsx,
+    sort_xlsx,
+    modify_structure_xlsx,
 )
+from backend.office.analytics import analyze_spreadsheet
 from backend.office.inspector import (
     inspect_docx,
     inspect_xlsx,
@@ -249,3 +254,99 @@ Here is the operational summary for **Q3 2026**.
     content = csv_out.read_text(encoding="utf-8")
     assert "Alpha" in content
     assert "Beta" in content
+
+
+def test_spreadsheet_analytics(tmp_path: Path):
+    xlsx_path = tmp_path / "metrics_data.xlsx"
+
+    create_xlsx(
+        xlsx_path,
+        sheets=[
+            {
+                "name": "Metrics",
+                "headers": ["Product", "Q1_Units", "Price", "Revenue", "BadFormula"],
+                "rows": [
+                    ["Alpha", 100, 25.0, "=B2*C2", 0],
+                    ["Beta", 200, 30.0, "=B3*C3", "=10/E2"],  # division by zero
+                    ["Gamma", 300, 15.0, "=B4*C4", 1],
+                ],
+            }
+        ],
+    )
+
+    analysis = analyze_spreadsheet(xlsx_path, sheet_name="Metrics")
+    assert analysis["file_name"] == "metrics_data.xlsx"
+    assert analysis["sheet_name"] == "Metrics"
+    assert analysis["dimensions"]["max_row"] >= 4
+    assert analysis["dimensions"]["data_row_count"] == 3
+
+    # Check columns
+    cols_by_name = {c["name"]: c for c in analysis["columns"]}
+    assert cols_by_name["Product"]["type"] == "text"
+    assert cols_by_name["Q1_Units"]["type"] == "numeric"
+    assert cols_by_name["Q1_Units"]["stats"]["min"] == 100
+    assert cols_by_name["Q1_Units"]["stats"]["max"] == 300
+    assert cols_by_name["Q1_Units"]["stats"]["sum"] == 600
+
+    # Formula audit
+    assert analysis["formula_audit"]["total_formulas"] >= 4
+    assert len(analysis["formula_audit"]["formulas_sample"]) >= 1
+
+
+def test_xlsx_charts_fill_sort_structure(tmp_path: Path):
+    xlsx_path = tmp_path / "sales_chart.xlsx"
+
+    create_xlsx(
+        xlsx_path,
+        sheets=[
+            {
+                "name": "Sales",
+                "headers": ["Region", "Q1", "DoubleQ1"],
+                "rows": [
+                    ["North", 300, ""],
+                    ["South", 100, ""],
+                    ["East", 200, ""],
+                ],
+            }
+        ],
+    )
+
+    # 1. Fill range with formula
+    fill_res = fill_range_xlsx(
+        xlsx_path,
+        sheet_name="Sales",
+        start_cell="C2",
+        end_cell="C4",
+        formula_template="=B{row}*2",
+    )
+    assert fill_res["status"] == "success"
+    assert fill_res["filled_cells"] == 3
+
+    # 2. Sort by Q1 column (col 2) ascending
+    sort_res = sort_xlsx(xlsx_path, sheet_name="Sales", by_column=2, ascending=True, has_headers=True)
+    assert sort_res["status"] == "success"
+
+    # 3. Add chart
+    chart_res = add_chart_to_xlsx(
+        xlsx_path,
+        sheet_name="Sales",
+        chart_type="bar",
+        data_range="B1:B4",
+        categories_range="A2:A4",
+        title="Q1 Regional Sales",
+        target_cell="E2",
+    )
+    assert chart_res["status"] == "success"
+    assert chart_res["added_charts"] == 1
+
+    # 4. Modify structure
+    struct_res = modify_structure_xlsx(xlsx_path, sheet_name="Sales", insert_row=5)
+    assert struct_res["status"] == "success"
+
+    # 5. Inspect to verify
+    info = inspect_xlsx(xlsx_path)
+    sheet_info = info["sheets"][0]
+    assert sheet_info["chart_count"] == 1
+    assert sheet_info["charts"][0]["type"] == "BarChart"
+    assert sheet_info["charts"][0]["title"] == "Q1 Regional Sales"
+

@@ -20,6 +20,10 @@ from .editor import (
     patch_docx,
     patch_xlsx,
     patch_pptx,
+    add_chart_to_xlsx,
+    fill_range_xlsx,
+    sort_xlsx,
+    modify_structure_xlsx,
 )
 from .converter import (
     markdown_to_docx,
@@ -29,6 +33,7 @@ from .converter import (
     csv_to_xlsx,
     xlsx_to_csv,
 )
+from .analytics import analyze_spreadsheet
 
 __all__ = [
     "inspect_document",
@@ -39,6 +44,7 @@ __all__ = [
     "inspect_markdown",
     "inspect_html",
     "inspect_csv",
+    "analyze_spreadsheet",
     "create_document",
     "create_docx",
     "create_xlsx",
@@ -47,6 +53,10 @@ __all__ = [
     "patch_docx",
     "patch_xlsx",
     "patch_pptx",
+    "add_chart_to_xlsx",
+    "fill_range_xlsx",
+    "sort_xlsx",
+    "modify_structure_xlsx",
     "markdown_to_docx",
     "docx_to_markdown",
     "html_to_docx",

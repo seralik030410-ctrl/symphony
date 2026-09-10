@@ -15,8 +15,15 @@ try:
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
+    from openpyxl.utils.cell import range_boundaries, coordinate_to_tuple
+    from openpyxl.chart import BarChart, LineChart, PieChart, AreaChart, Reference
 except ImportError:
     openpyxl = None
+    BarChart = None
+    LineChart = None
+    PieChart = None
+    AreaChart = None
+    Reference = None
 
 try:
     import pptx
@@ -118,8 +125,14 @@ def patch_xlsx(
     cell_updates: list[dict[str, Any]] | None = None,
     append_rows: list[list[Any]] | None = None,
     new_sheets: list[str] | None = None,
+    style_updates: list[dict[str, Any]] | None = None,
+    fill_ranges: list[dict[str, Any]] | None = None,
+    sort_operations: list[dict[str, Any]] | None = None,
+    row_operations: list[dict[str, Any]] | None = None,
+    col_operations: list[dict[str, Any]] | None = None,
+    charts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Applies surgical cell and formula edits to an existing Excel .xlsx file."""
+    """Applies surgical cell, formula, style, structure, and chart edits to an existing Excel .xlsx file."""
     if openpyxl is None:
         raise RuntimeError("openpyxl is not installed")
 
@@ -128,12 +141,39 @@ def patch_xlsx(
     active_sheet = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb.active
     updated_cells = 0
     added_rows = 0
+    styled_cells = 0
+    filled_cells = 0
+    added_charts = 0
 
     if new_sheets:
         for s_name in new_sheets:
             if s_name not in wb.sheetnames:
                 wb.create_sheet(title=s_name)
 
+    # Structural operations: row & column insert / delete
+    if row_operations:
+        for rop in row_operations:
+            target_sheet = wb[rop["sheet"]] if "sheet" in rop and rop["sheet"] in wb.sheetnames else active_sheet
+            op = rop.get("op", "insert")
+            idx = rop.get("index", 1)
+            amt = rop.get("amount", 1)
+            if op == "insert":
+                target_sheet.insert_rows(idx, amt)
+            elif op == "delete":
+                target_sheet.delete_rows(idx, amt)
+
+    if col_operations:
+        for cop in col_operations:
+            target_sheet = wb[cop["sheet"]] if "sheet" in cop and cop["sheet"] in wb.sheetnames else active_sheet
+            op = cop.get("op", "insert")
+            idx = cop.get("index", 1)
+            amt = cop.get("amount", 1)
+            if op == "insert":
+                target_sheet.insert_cols(idx, amt)
+            elif op == "delete":
+                target_sheet.delete_cols(idx, amt)
+
+    # Cell updates
     if cell_updates:
         for cu in cell_updates:
             coord = cu.get("cell")  # e.g. "B5" or row/col
@@ -146,6 +186,135 @@ def patch_xlsx(
                 target_sheet.cell(row=cu["row"], column=cu["col"], value=val)
                 updated_cells += 1
 
+    # Fill ranges with formula templates or sequences
+    if fill_ranges:
+        for fr in fill_ranges:
+            target_sheet = wb[fr["sheet"]] if "sheet" in fr and fr["sheet"] in wb.sheetnames else active_sheet
+            start_cell = fr.get("start_cell") or fr.get("start", "A1")
+            end_cell = fr.get("end_cell") or fr.get("end", start_cell)
+            formula_tpl = fr.get("formula", "")
+            seq_start = fr.get("sequence_start")
+            seq_step = fr.get("sequence_step", 1)
+
+            min_c, min_r, max_c, max_r = range_boundaries(f"{start_cell}:{end_cell}")
+            curr_val = seq_start
+            for r in range(min_r, max_r + 1):
+                for c in range(min_c, max_c + 1):
+                    if formula_tpl:
+                        c_letter = get_column_letter(c)
+                        rendered = formula_tpl.format(row=r, col=c, col_letter=c_letter)
+                        target_sheet.cell(row=r, column=c, value=rendered)
+                        filled_cells += 1
+                    elif curr_val is not None:
+                        target_sheet.cell(row=r, column=c, value=curr_val)
+                        curr_val += seq_step
+                        filled_cells += 1
+
+    # Cell styling updates
+    if style_updates:
+        for su in style_updates:
+            target_sheet = wb[su["sheet"]] if "sheet" in su and su["sheet"] in wb.sheetnames else active_sheet
+            cells_to_style: list[openpyxl.cell.Cell] = []
+            if "cell" in su:
+                cells_to_style.append(target_sheet[su["cell"]])
+            elif "range" in su:
+                min_c, min_r, max_c, max_r = range_boundaries(su["range"])
+                for r in range(min_r, max_r + 1):
+                    for c in range(min_c, max_c + 1):
+                        cells_to_style.append(target_sheet.cell(row=r, column=c))
+            elif "row" in su and "col" in su:
+                cells_to_style.append(target_sheet.cell(row=su["row"], column=su["col"]))
+
+            for cell in cells_to_style:
+                # Font updates
+                font_kwargs: dict[str, Any] = {}
+                if "bold" in su:
+                    font_kwargs["bold"] = bool(su["bold"])
+                if "italic" in su:
+                    font_kwargs["italic"] = bool(su["italic"])
+                if "color" in su:
+                    c_val = str(su["color"]).lstrip("#").upper()
+                    font_kwargs["color"] = c_val
+                if font_kwargs:
+                    cell.font = Font(**font_kwargs)
+
+                # Background fill
+                if "bg_color" in su:
+                    bg_val = str(su["bg_color"]).lstrip("#").upper()
+                    cell.fill = PatternFill(start_color=bg_val, end_color=bg_val, fill_type="solid")
+
+                # Alignment
+                if "align" in su:
+                    cell.alignment = Alignment(horizontal=su["align"], vertical="center")
+
+                # Number format
+                if "number_format" in su:
+                    cell.number_format = str(su["number_format"])
+
+                styled_cells += 1
+
+    # Sorting
+    if sort_operations:
+        for so in sort_operations:
+            target_sheet = wb[so["sheet"]] if "sheet" in so and so["sheet"] in wb.sheetnames else active_sheet
+            by_col = so.get("column", 1)
+            ascending = so.get("ascending", True)
+            has_headers = so.get("has_headers", True)
+            col_idx = int(by_col) if isinstance(by_col, int) else (openpyxl.utils.column_index_from_string(by_col) if by_col.isalpha() else 1)
+
+            all_rows = list(target_sheet.iter_rows(values_only=False))
+            if len(all_rows) > (1 if has_headers else 0):
+                header_row = all_rows[0] if has_headers else None
+                body_rows = all_rows[1:] if has_headers else all_rows
+
+                def get_sort_val(row_cells: Any) -> Any:
+                    if col_idx - 1 < len(row_cells):
+                        v = row_cells[col_idx - 1].value
+                        return (0, float(v)) if isinstance(v, (int, float)) else (1, str(v or ""))
+                    return (2, "")
+
+                # Store row values
+                extracted = [[c.value for c in r] for r in body_rows]
+                extracted.sort(key=lambda r: (0, float(r[col_idx - 1])) if col_idx - 1 < len(r) and isinstance(r[col_idx - 1], (int, float)) else (1, str(r[col_idx - 1] or "")), reverse=not ascending)
+
+                start_r = 2 if has_headers else 1
+                for r_idx, r_vals in enumerate(extracted, start=start_r):
+                    for c_idx, val in enumerate(r_vals, start=1):
+                        target_sheet.cell(row=r_idx, column=c_idx, value=val)
+
+    # Charts
+    if charts and BarChart is not None:
+        for ch in charts:
+            target_sheet = wb[ch["sheet"]] if "sheet" in ch and ch["sheet"] in wb.sheetnames else active_sheet
+            c_type = ch.get("chart_type", "bar").lower()
+            d_range = ch.get("data_range", "")
+            cats_range = ch.get("categories_range")
+            title = ch.get("title", "")
+            tgt_cell = ch.get("target_cell", "E2")
+
+            if c_type == "line":
+                chart_obj = LineChart()
+            elif c_type == "pie":
+                chart_obj = PieChart()
+            elif c_type == "area":
+                chart_obj = AreaChart()
+            else:
+                chart_obj = BarChart()
+
+            chart_obj.title = title
+            if d_range:
+                min_c, min_r, max_c, max_r = range_boundaries(d_range)
+                data_ref = Reference(target_sheet, min_col=min_c, min_row=min_r, max_col=max_c, max_row=max_r)
+                chart_obj.add_data(data_ref, titles_from_data=True)
+
+            if cats_range:
+                c_min_c, c_min_r, c_max_c, c_max_r = range_boundaries(cats_range)
+                cats_ref = Reference(target_sheet, min_col=c_min_c, min_row=c_min_r, max_col=c_max_c, max_row=c_max_r)
+                chart_obj.set_categories(cats_ref)
+
+            target_sheet.add_chart(chart_obj, tgt_cell)
+            added_charts += 1
+
     if append_rows:
         for row in append_rows:
             active_sheet.append(row)
@@ -157,9 +326,106 @@ def patch_xlsx(
         "file_name": path.name,
         "updated_cells": updated_cells,
         "added_rows": added_rows,
+        "styled_cells": styled_cells,
+        "filled_cells": filled_cells,
+        "added_charts": added_charts,
         "sheet_names": wb.sheetnames,
         "file_size": path.stat().st_size,
     }
+
+
+def add_chart_to_xlsx(
+    file_path: Path | str,
+    *,
+    sheet_name: str | None = None,
+    chart_type: str = "bar",
+    data_range: str = "",
+    categories_range: str | None = None,
+    title: str = "",
+    target_cell: str = "E2",
+) -> dict[str, Any]:
+    """Adds a native Excel chart (bar, line, pie, area) to an existing .xlsx file."""
+    return patch_xlsx(
+        file_path,
+        sheet_name=sheet_name,
+        charts=[{
+            "chart_type": chart_type,
+            "data_range": data_range,
+            "categories_range": categories_range,
+            "title": title,
+            "target_cell": target_cell,
+        }],
+    )
+
+
+def fill_range_xlsx(
+    file_path: Path | str,
+    *,
+    sheet_name: str | None = None,
+    start_cell: str = "A1",
+    end_cell: str = "A1",
+    formula_template: str = "",
+) -> dict[str, Any]:
+    """Fills a range with a formula template (e.g. '=A{row}*B{row}') or values."""
+    return patch_xlsx(
+        file_path,
+        sheet_name=sheet_name,
+        fill_ranges=[{
+            "start_cell": start_cell,
+            "end_cell": end_cell,
+            "formula": formula_template,
+        }],
+    )
+
+
+def sort_xlsx(
+    file_path: Path | str,
+    *,
+    sheet_name: str | None = None,
+    by_column: int | str = 1,
+    ascending: bool = True,
+    has_headers: bool = True,
+) -> dict[str, Any]:
+    """Sorts sheet data by a given column index or column letter."""
+    return patch_xlsx(
+        file_path,
+        sheet_name=sheet_name,
+        sort_operations=[{
+            "column": by_column,
+            "ascending": ascending,
+            "has_headers": has_headers,
+        }],
+    )
+
+
+def modify_structure_xlsx(
+    file_path: Path | str,
+    *,
+    sheet_name: str | None = None,
+    insert_row: int | None = None,
+    delete_row: int | None = None,
+    insert_col: int | None = None,
+    delete_col: int | None = None,
+) -> dict[str, Any]:
+    """Inserts or deletes rows and columns in an Excel sheet."""
+    row_ops: list[dict[str, Any]] = []
+    col_ops: list[dict[str, Any]] = []
+
+    if insert_row is not None:
+        row_ops.append({"op": "insert", "index": insert_row, "amount": 1})
+    if delete_row is not None:
+        row_ops.append({"op": "delete", "index": delete_row, "amount": 1})
+    if insert_col is not None:
+        col_ops.append({"op": "insert", "index": insert_col, "amount": 1})
+    if delete_col is not None:
+        col_ops.append({"op": "delete", "index": delete_col, "amount": 1})
+
+    return patch_xlsx(
+        file_path,
+        sheet_name=sheet_name,
+        row_operations=row_ops if row_ops else None,
+        col_operations=col_ops if col_ops else None,
+    )
 
 
 def patch_pptx(
@@ -449,7 +715,11 @@ def patch_document(file_path: Path | str, **kwargs: Any) -> dict[str, Any]:
         filtered = {k: v for k, v in kwargs.items() if k in docx_keys and v is not None}
         return patch_docx(path, **filtered)
     elif suffix in (".xlsx", ".xlsm"):
-        xlsx_keys = {"sheet_name", "cell_updates", "append_rows", "new_sheets"}
+        xlsx_keys = {
+            "sheet_name", "cell_updates", "append_rows", "new_sheets",
+            "style_updates", "fill_ranges", "sort_operations",
+            "row_operations", "col_operations", "charts",
+        }
         filtered = {k: v for k, v in kwargs.items() if k in xlsx_keys and v is not None}
         return patch_xlsx(path, **filtered)
     elif suffix == ".pptx":

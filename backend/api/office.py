@@ -12,6 +12,7 @@ from backend.storage.repository import NotFoundError
 from backend.tools.contracts import ToolError
 from backend.office.inspector import inspect_document
 from backend.office.editor import patch_document, create_document
+from backend.office.analytics import analyze_spreadsheet
 from backend.office.converter import (
     markdown_to_docx,
     docx_to_markdown,
@@ -57,11 +58,24 @@ class SaveOfficeDocInput(BaseModel):
     cell_updates: list[dict[str, Any]] | None = None
     append_rows: list[list[Any]] | None = None
     new_sheets: list[str] | None = None
+    style_updates: list[dict[str, Any]] | None = None
+    fill_ranges: list[dict[str, Any]] | None = None
+    sort_operations: list[dict[str, Any]] | None = None
+    row_operations: list[dict[str, Any]] | None = None
+    col_operations: list[dict[str, Any]] | None = None
+    charts: list[dict[str, Any]] | None = None
     slide_updates: list[dict[str, Any]] | None = None
     append_slides: list[dict[str, Any]] | None = None
     # Full replacements
     content_base64: str | None = None
     text_content: str | None = None
+
+
+class AnalyzeOfficeDocInput(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    path: str = Field(min_length=1, max_length=500)
+    sheet_name: str | None = None
+    deep: bool = True
 
 
 class ConvertOfficeDocInput(BaseModel):
@@ -134,6 +148,12 @@ async def save_office_file(session_id: str, payload: SaveOfficeDocInput, request
                 cell_updates=payload.cell_updates,
                 append_rows=payload.append_rows,
                 new_sheets=payload.new_sheets,
+                style_updates=payload.style_updates,
+                fill_ranges=payload.fill_ranges,
+                sort_operations=payload.sort_operations,
+                row_operations=payload.row_operations,
+                col_operations=payload.col_operations,
+                charts=payload.charts,
                 slide_updates=payload.slide_updates,
                 append_slides=payload.append_slides,
             )
@@ -147,6 +167,17 @@ async def save_office_file(session_id: str, payload: SaveOfficeDocInput, request
             "path": runtime.workspaces.relative(session_id, resolved_path),
             "document": updated_doc,
         }
+    except Exception as error:
+        raise error_response(error) from error
+
+
+@router.post("/analyze")
+async def analyze_office_file(session_id: str, payload: AnalyzeOfficeDocInput, request: Request):
+    """Deeply analyzes an Excel/CSV spreadsheet and returns statistics, column profiles, and formula audit."""
+    try:
+        runtime = runtime_for(request, session_id)
+        resolved_path = runtime.workspaces.resolve(session_id, payload.path, must_exist=True)
+        return analyze_spreadsheet(resolved_path, sheet_name=payload.sheet_name, deep=payload.deep)
     except Exception as error:
         raise error_response(error) from error
 

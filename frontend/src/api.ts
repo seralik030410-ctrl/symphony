@@ -129,6 +129,7 @@ export const api = {
   officeInspect: (id: string, path: string) => request<OfficeDocument>(`/sessions/${id}/office/inspect?path=${encodeURIComponent(path)}`),
   officeRawUrl: (id: string, path: string) => `${API_ROOT}/sessions/${id}/office/raw?path=${encodeURIComponent(path)}`,
   officeSave: (id: string, payload: OfficeSavePayload) => request<{ status: string; path: string; document: OfficeDocument }>(`/sessions/${id}/office/save`, { method: "POST", body: JSON.stringify(payload) }),
+  officeAnalyze: (id: string, path: string, sheet_name?: string, deep = true) => request<OfficeSheetAnalysis>(`/sessions/${id}/office/analyze`, { method: "POST", body: JSON.stringify({ path, sheet_name, deep }) }),
   officeConvert: (id: string, payload: OfficeConvertPayload) => request<{ status: string; source: string; output_path: string; target_format: string; document: OfficeDocument }>(`/sessions/${id}/office/convert`, { method: "POST", body: JSON.stringify(payload) }),
   listSkills: () => request<SkillSummary[]>("/skills"),
   listSkillTrash: () => request<SkillSummary[]>("/skills/trash"),
@@ -199,6 +200,63 @@ export interface OfficeDocument {
   raw_text?: string;
 }
 
+export interface OfficeColumnProfile {
+  name: string;
+  type: "numeric" | "text";
+  total_count: number;
+  null_count: number;
+  unique_count: number;
+  stats?: {
+    min: number;
+    max: number;
+    mean: number;
+    median?: number;
+    sum: number;
+    std?: number;
+  } | null;
+  sample_values?: string[];
+}
+
+export interface OfficeFormulaError {
+  cell: string;
+  error: string;
+  formula: string;
+}
+
+export interface OfficeFormulaItem {
+  cell: string;
+  row: number;
+  col: number;
+  formula: string;
+  evaluated_value: string;
+}
+
+export interface OfficeSheetAnalysis {
+  file_name: string;
+  sheet_name: string;
+  available_sheets: string[];
+  dimensions: {
+    max_row: number;
+    max_column: number;
+    data_row_count: number;
+  };
+  summary: {
+    total_rows: number;
+    total_columns: number;
+    numeric_columns_count?: number;
+    text_columns_count?: number;
+  };
+  headers: string[];
+  columns: OfficeColumnProfile[];
+  correlations?: Record<string, Record<string, number>>;
+  formula_audit: {
+    total_formulas: number;
+    error_count: number;
+    errors: OfficeFormulaError[];
+    formulas_sample: OfficeFormulaItem[];
+  };
+}
+
 export interface OfficeSavePayload {
   path: string;
   format?: string;
@@ -208,6 +266,12 @@ export interface OfficeSavePayload {
   cell_updates?: Array<{ sheet?: string; cell?: string; row?: number; col?: number; value: unknown }>;
   append_rows?: unknown[][];
   new_sheets?: string[];
+  style_updates?: Array<{ sheet?: string; cell?: string; range?: string; row?: number; col?: number; bold?: boolean; italic?: boolean; color?: string; bg_color?: string; align?: string; number_format?: string }>;
+  fill_ranges?: Array<{ sheet?: string; start_cell: string; end_cell: string; formula?: string; sequence_start?: number; sequence_step?: number }>;
+  sort_operations?: Array<{ sheet?: string; column: number | string; ascending?: boolean; has_headers?: boolean }>;
+  row_operations?: Array<{ sheet?: string; op: "insert" | "delete"; index: number; amount?: number }>;
+  col_operations?: Array<{ sheet?: string; op: "insert" | "delete"; index: number; amount?: number }>;
+  charts?: Array<{ sheet?: string; chart_type: string; data_range: string; categories_range?: string; title?: string; target_cell?: string }>;
   slide_updates?: Array<{ index: number; title?: string; bullets?: string[]; notes?: string }>;
   append_slides?: Array<{ title?: string; bullets?: string[]; notes?: string }>;
   content_base64?: string;

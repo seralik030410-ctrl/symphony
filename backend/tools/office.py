@@ -8,7 +8,8 @@ from pydantic import Field
 from backend.tools.contracts import Tool, ToolContext, ToolError, ToolInput, ToolResult
 from backend.tools.workspace import WorkspaceManager
 from backend.office.inspector import inspect_document
-from backend.office.editor import create_document, patch_document
+from backend.office.editor import create_document, patch_document, add_chart_to_xlsx
+from backend.office.analytics import analyze_spreadsheet
 from backend.office.converter import (
     markdown_to_docx,
     docx_to_markdown,
@@ -112,6 +113,12 @@ class OfficePatchInput(ToolInput):
     cell_updates: list[dict[str, Any]] | None = Field(default=None, description="For .xlsx: [{cell: 'B5', value: 100, sheet: 'Sheet1'}] or [{row: 1, col: 2, value: 'Total'}]")
     append_rows: list[list[Any]] | None = Field(default=None, description="For .xlsx: list of rows to append")
     new_sheets: list[str] | None = Field(default=None, description="For .xlsx: list of sheet names to add")
+    style_updates: list[dict[str, Any]] | None = Field(default=None, description="For .xlsx: [{cell: 'B2', bold: True, italic: False, color: 'FF0000', bg_color: 'FFFF00', align: 'center', number_format: '$#,##0.00'}]")
+    fill_ranges: list[dict[str, Any]] | None = Field(default=None, description="For .xlsx: [{start_cell: 'C2', end_cell: 'C10', formula: '=A{row}*B{row}'}]")
+    sort_operations: list[dict[str, Any]] | None = Field(default=None, description="For .xlsx: [{column: 1, ascending: True, has_headers: True}]")
+    row_operations: list[dict[str, Any]] | None = Field(default=None, description="For .xlsx: [{op: 'insert'|'delete', index: 5, amount: 1}]")
+    col_operations: list[dict[str, Any]] | None = Field(default=None, description="For .xlsx: [{op: 'insert'|'delete', index: 2, amount: 1}]")
+    charts: list[dict[str, Any]] | None = Field(default=None, description="For .xlsx: [{chart_type: 'bar'|'line'|'pie'|'area', data_range: 'B1:B10', categories_range: 'A2:A10', title: 'Sales', target_cell: 'E2'}]")
     slide_updates: list[dict[str, Any]] | None = Field(default=None, description="For .pptx: [{index: int, title: str, bullets: list[str], notes: str}]")
     append_slides: list[dict[str, Any]] | None = Field(default=None, description="For .pptx: [{title: str, bullets: list[str], notes: str}]")
 
@@ -120,7 +127,7 @@ class OfficePatchTool(Tool):
     name = "office.patch"
     title = "Patch office document"
     description = (
-        "Surgically update an existing office document (.docx paragraphs/tables, .xlsx cells/formulas/rows, "
+        "Surgically update an existing office document (.docx paragraphs/tables, .xlsx cells/formulas/rows/styles/charts, "
         "or .pptx slides/bullets/notes) while preserving all other styles and content."
     )
     input_model = OfficePatchInput
@@ -146,6 +153,12 @@ class OfficePatchTool(Tool):
                     cell_updates=arguments.cell_updates,
                     append_rows=arguments.append_rows,
                     new_sheets=arguments.new_sheets,
+                    style_updates=arguments.style_updates,
+                    fill_ranges=arguments.fill_ranges,
+                    sort_operations=arguments.sort_operations,
+                    row_operations=arguments.row_operations,
+                    col_operations=arguments.col_operations,
+                    charts=arguments.charts,
                 )
             elif suffix == ".pptx":
                 result = patch_document(
@@ -165,6 +178,82 @@ class OfficePatchTool(Tool):
             if isinstance(exc, ToolError):
                 raise
             raise ToolError("office_patch_error", str(exc)) from exc
+
+
+class OfficeAnalyzeInput(ToolInput):
+    path: str = Field(min_length=1, max_length=500, description="Path to .xlsx, .xlsm, or .csv file")
+    sheet_name: str | None = Field(default=None, description="Optional sheet name to analyze. If omitted, uses first sheet.")
+    deep: bool = Field(default=True, description="Whether to compute numeric correlations and deep statistics")
+
+
+class OfficeAnalyzeTool(Tool):
+    name = "office.analyze"
+    title = "Analyze spreadsheet data"
+    description = (
+        "Deeply analyze an Excel (.xlsx) or CSV spreadsheet: compute column data profiles, summary statistics "
+        "(min/max/mean/median/sum/std), formula audit (find #REF!, #DIV/0!, #VALUE! errors), and numeric correlations."
+    )
+    input_model = OfficeAnalyzeInput
+    read_only = True
+
+    def __init__(self, workspaces: WorkspaceManager) -> None:
+        self.workspaces = workspaces
+
+    async def execute(self, context: ToolContext, arguments: OfficeAnalyzeInput) -> ToolResult:
+        try:
+            path = self.workspaces.resolve(context.session_id, arguments.path, must_exist=True)
+            result = analyze_spreadsheet(path, sheet_name=arguments.sheet_name, deep=arguments.deep)
+            return ToolResult(result)
+        except Exception as exc:
+            raise ToolError("office_analyze_error", str(exc)) from exc
+
+
+class OfficeChartInput(ToolInput):
+    path: str = Field(min_length=1, max_length=500, description="Path to existing .xlsx file")
+    sheet_name: str | None = Field(default=None, description="Sheet name where the chart will be placed")
+    chart_type: str = Field(default="bar", description="Type of chart: 'bar', 'line', 'pie', or 'area'")
+    data_range: str = Field(description="Data cell range (e.g. 'B1:B10' or 'B1:D10')")
+    categories_range: str | None = Field(default=None, description="Optional categories/labels cell range (e.g. 'A2:A10')")
+    title: str = Field(default="", description="Chart title")
+    target_cell: str = Field(default="E2", description="Top-left cell where the chart will be anchored (e.g. 'E2')")
+
+
+class OfficeChartTool(Tool):
+    name = "office.chart"
+    title = "Add chart to Excel workbook"
+    description = (
+        "Embed native interactive Excel charts (bar, line, pie, area) directly into an existing .xlsx spreadsheet "
+        "with custom title, data ranges, category axis, and anchor position."
+    )
+    input_model = OfficeChartInput
+    read_only = False
+    destructive = False
+
+    def __init__(self, workspaces: WorkspaceManager) -> None:
+        self.workspaces = workspaces
+
+    async def execute(self, context: ToolContext, arguments: OfficeChartInput) -> ToolResult:
+        try:
+            path = self.workspaces.resolve(context.session_id, arguments.path, must_exist=True)
+            suffix = path.suffix.lower()
+            if suffix not in (".xlsx", ".xlsm"):
+                raise ToolError("unsupported_format", f"Office chart only supports Excel files (.xlsx, .xlsm), got {suffix}")
+
+            result = add_chart_to_xlsx(
+                path,
+                sheet_name=arguments.sheet_name,
+                chart_type=arguments.chart_type,
+                data_range=arguments.data_range,
+                categories_range=arguments.categories_range,
+                title=arguments.title,
+                target_cell=arguments.target_cell,
+            )
+            relative = self.workspaces.relative(context.session_id, path)
+            return ToolResult(output=result, changed_files=[relative])
+        except Exception as exc:
+            if isinstance(exc, ToolError):
+                raise
+            raise ToolError("office_chart_error", str(exc)) from exc
 
 
 class OfficeConvertInput(ToolInput):
